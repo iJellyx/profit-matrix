@@ -812,6 +812,259 @@ function Recs({ engine, I, T }) {
   );
 }
 
+/* ── HOME DASHBOARD ── */
+// Deterministic "mock" metrics keyed off the active brand's inputs so the numbers
+// feel consistent as users switch brands. Replace `fetchBrandMetrics` with a real
+// API call when backend is wired up.
+function seededRandom(seed) {
+  let x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function buildMockMetrics(I, timeframe) {
+  // scale factor based on timeframe (1d/7d/30d/90d)
+  const days = { "1d": 1, "7d": 7, "30d": 30, "90d": 90 }[timeframe] || 30;
+  const dailySpend = I.currentSpend / 30;
+  const dailyRev = dailySpend * I.currentRoas;
+  const seed = (I.currentSpend + I.currentRoas * 1000 + days * 7);
+
+  // Spark line — 14 points
+  const spark = (baseline, volatility, trend = 0) => {
+    const pts = [];
+    for (let i = 0; i < 14; i++) {
+      const noise = (seededRandom(seed + i * 13) - 0.5) * volatility;
+      const drift = (i / 13) * trend;
+      pts.push(baseline * (1 + noise + drift));
+    }
+    return pts;
+  };
+
+  const totalSales = dailyRev * days + (I.monthlyOrganicRevenue / 30) * days;
+  const adSpend = dailySpend * days;
+  const roas = I.currentRoas;
+  const orders = Math.round(totalSales / (I.newAov || 75));
+  const trueAov = totalSales / Math.max(1, orders);
+  const ncRoas = roas * 1.05; // mock
+  const fbSpend = adSpend * 0.72;
+  const ggSpend = adSpend * 0.22;
+  const mer = totalSales / Math.max(1, adSpend);
+  const convRate = 1.4 + seededRandom(seed + 99) * 0.6;
+  const netProfit = totalSales * 0.25 - adSpend * 0.35 - (I.monthlyFixedCosts / 30) * days;
+
+  const mkMetric = (id, icon, label, value, change, trend, isProfit = false) => ({
+    id, icon, label, value, change, trend, spark: spark(1, 0.25, change / 100), isProfit,
+  });
+
+  return [
+    mkMetric("sales", "🛒", "Total Sales", `£${fmtInt(totalSales)}`, 34.66, "up"),
+    mkMetric("adspend", "◉", "Ads", `£${fmtInt(adSpend)}`, -4.36, "down"),
+    mkMetric("roas", "◉", "Blended ROAS", roas.toFixed(2), 40.73, "up"),
+    mkMetric("aov", "🛒", "True AOV", `£${Math.round(trueAov)}`, 0.16, "up"),
+    mkMetric("orders", "🛒", "Orders", fmtInt(orders), 32, "up"),
+    mkMetric("ncroas", "◉", "NC-ROAS", ncRoas.toFixed(2), 30.41, "up"),
+    mkMetric("metaRoas", "ⓕ", "Meta ROAS", "4.20", 21.04, "up"),
+    mkMetric("mer", "▽", "MER", `${(mer * 10).toFixed(0)}%`, -28.98, "down"),
+    mkMetric("conv", "▤", "Conversion Rate", `${convRate.toFixed(2)}%`, 25.28, "up"),
+    mkMetric("fb", "ⓕ", "Facebook Ads", `£${fmtInt(fbSpend)}`, -13.82, "down"),
+    mkMetric("gg", "G", "Google Ads", `£${fmtInt(ggSpend)}`, 49.56, "up"),
+    mkMetric("net", "▽", "Net Profit", `£${fmtInt(netProfit)}`, 62.27, "up", true),
+  ];
+}
+
+// Tiny inline SVG sparkline
+function Spark({ points, color, width = 200, height = 40 }) {
+  if (!points || points.length < 2) return null;
+  const mn = Math.min(...points), mx = Math.max(...points);
+  const range = mx - mn || 1;
+  const x = i => (i / (points.length - 1)) * width;
+  const y = v => height - ((v - mn) / range) * height * 0.9 - height * 0.05;
+  const d = points.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(2)} ${y(p).toFixed(2)}`).join(" ");
+  return (
+    <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ display: "block" }}>
+      <path d={d} fill="none" stroke={color} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const PLATFORM_ICON_COLORS = {
+  "🛒": "#95bf47", // shopify green
+  "◉": "#e87c6a", // triple-whale like dot
+  "ⓕ": "#1877f2", // facebook/meta blue
+  "G": "#4285f4", // google
+  "▤": "#f9ab00", // ga4
+  "▽": "#ff6b6b",
+};
+
+function MetricCard({ m, T, brandName, timeframe }) {
+  const positive = m.trend === "up";
+  const changeColor = (m.label === "Ads" || m.label.includes("Facebook") || m.label.includes("MER")) ? (positive ? T.red : T.green) : (positive ? T.green : T.red);
+  return (
+    <div style={{ padding: "14px 16px 12px", borderRadius: 10, background: m.isProfit ? (T === THEMES.dark ? "rgba(120,220,160,0.08)" : "#ebfdf3") : T.panel, border: `1.5px solid ${m.isProfit ? "rgba(120,220,160,0.3)" : T.border}`, display: "flex", flexDirection: "column", gap: 6, minHeight: 120 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 14, color: PLATFORM_ICON_COLORS[m.icon] || T.muted, fontWeight: 700, width: 16, textAlign: "center" }}>{m.icon}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{m.label}</span>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: changeColor, display: "flex", alignItems: "center", gap: 2 }}>
+          <span>{m.trend === "up" ? "↑" : "↓"}</span>
+          <span>{Math.abs(m.change).toFixed(2)}%</span>
+        </span>
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: T.textStrong, letterSpacing: "-0.02em", lineHeight: 1, fontFamily: "var(--h)" }}>{m.value}</div>
+      <div style={{ height: 32, marginTop: 4 }}>
+        <Spark points={m.spark} color={m.trend === "up" ? T.green : T.blue} />
+      </div>
+    </div>
+  );
+}
+
+function ConnectionChip({ name, icon, status, T, onConnect }) {
+  const connected = status === "connected";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 9, background: T.panel, border: `1.5px solid ${T.border}` }}>
+      <div style={{ width: 28, height: 28, borderRadius: 6, background: T.card, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: PLATFORM_ICON_COLORS[icon] || T.text }}>{icon}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: T.textStrong }}>{name}</div>
+        <div style={{ fontSize: 11, color: connected ? T.green : T.muted, fontWeight: 600 }}>{connected ? "● Connected" : "Not connected"}</div>
+      </div>
+      <button onClick={onConnect} style={{ padding: "6px 12px", borderRadius: 6, fontSize: 11.5, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.border}`, background: T.card, color: T.text, fontFamily: "var(--h)" }}>
+        {connected ? "Manage" : "Connect"}
+      </button>
+    </div>
+  );
+}
+
+function HomeDashboard({ open, onClose, onGoToMatrix, T, brand, theme }) {
+  const [timeframe, setTimeframe] = useState("30d");
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastSync, setLastSync] = useState(() => new Date());
+  const [metrics, setMetrics] = useState([]);
+
+  useEffect(() => {
+    if (brand) setMetrics(buildMockMetrics(brand.inputs, timeframe));
+  }, [brand, timeframe]);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    // Simulated delay — replace with real API call
+    await new Promise(r => setTimeout(r, 900));
+    setMetrics(buildMockMetrics(brand.inputs, timeframe));
+    setLastSync(new Date());
+    setRefreshing(false);
+  };
+
+  const fmtSync = (d) => {
+    const diff = Math.round((Date.now() - d.getTime()) / 1000);
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return `${Math.floor(diff / 3600)}h ago`;
+  };
+
+  const connections = [
+    { name: "Shopify", icon: "🛒", status: "mock" },
+    { name: "Meta Ads", icon: "ⓕ", status: "mock" },
+    { name: "Google Ads", icon: "G", status: "mock" },
+    { name: "Google Analytics", icon: "▤", status: "mock" },
+  ];
+
+  return (
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, pointerEvents: open ? "auto" : "none" }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", opacity: open ? 1 : 0, transition: "opacity .25s" }} />
+      {/* Panel */}
+      <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: "min(720px, 92vw)", background: T.bg, borderRight: `1.5px solid ${T.border}`, transform: open ? "translateX(0)" : "translateX(-102%)", transition: "transform .28s cubic-bezier(.2,.8,.2,1)", boxShadow: open ? "4px 0 32px rgba(0,0,0,0.35)" : "none", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+        {/* Header */}
+        <div style={{ padding: "16px 22px", borderBottom: `1.5px solid ${T.border}`, background: theme === "dark" ? "linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)" : "linear-gradient(180deg, rgba(0,0,0,0.015) 0%, transparent 100%)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontSize: 18 }}>🏠</div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: "-0.015em", color: T.textStrong }}>Home Dashboard</h2>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: T.muted }}>Live metrics for <b style={{ color: T.text }}>{brand?.name}</b></p>
+              </div>
+            </div>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: `1.5px solid ${T.border}`, background: T.card, color: T.text, fontSize: 16, cursor: "pointer", fontWeight: 700 }} title="Close">✕</button>
+          </div>
+
+          {/* Purpose / elevator pitch */}
+          <div style={{ padding: "10px 12px", borderRadius: 8, background: T.card, border: `1.5px solid ${T.border}`, marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: T.muted, lineHeight: 1.55 }}>
+              <b style={{ color: T.textStrong }}>What this tool does:</b> Maps your ad spend × efficiency against real unit economics so you can see exactly where you'd make more profit by scaling — and where you'd burn cash. Pair live store data here with the <b style={{ color: T.green }}>Profit Matrix</b> scenario planner to make confident scaling decisions.
+            </div>
+          </div>
+        </div>
+
+        {/* Controls bar */}
+        <div style={{ padding: "12px 22px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", borderBottom: `1.5px solid ${T.border}` }}>
+          <div style={{ display: "flex", gap: 3, background: T.card, border: `1.5px solid ${T.border}`, borderRadius: 7, padding: 3 }}>
+            {["1d", "7d", "30d", "90d"].map(tf => (
+              <button key={tf} onClick={() => setTimeframe(tf)} style={{ padding: "5px 12px", borderRadius: 5, fontSize: 11.5, fontWeight: 700, cursor: "pointer", border: "none", background: timeframe === tf ? T.green : "transparent", color: timeframe === tf ? (theme === "dark" ? "#0c0e16" : "#ffffff") : T.text, fontFamily: "var(--h)" }}>{tf.toUpperCase()}</button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: T.muted, marginLeft: 4 }}>Last synced <b style={{ color: T.text }}>{fmtSync(lastSync)}</b></div>
+          <div style={{ flex: 1 }} />
+          <button onClick={refresh} disabled={refreshing} style={{ padding: "7px 13px", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: refreshing ? "wait" : "pointer", border: `1.5px solid ${T.border}`, background: T.card, color: T.text, display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--h)" }}>
+            <span style={{ display: "inline-block", transition: "transform .6s", transform: refreshing ? "rotate(360deg)" : "rotate(0)" }}>⟳</span>
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+          <button onClick={onGoToMatrix} style={{ padding: "8px 14px", borderRadius: 7, fontSize: 12.5, fontWeight: 800, cursor: "pointer", border: `1.5px solid ${T.green}`, background: T.green, color: theme === "dark" ? "#0c0e16" : "#ffffff", fontFamily: "var(--h)" }}>
+            Open Profit Matrix →
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 22px" }}>
+
+          {/* Pins grid */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 14 }}>📌</span>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: T.textStrong }}>Pins</h3>
+              <Tip T={T} text="Your pinned live metrics. In the full version, pull directly from Shopify, Meta Ads, Google Ads and GA4. These cards are currently illustrative (seeded from your Profit Matrix inputs)." />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+              {metrics.map(m => <MetricCard key={m.id} m={m} T={T} brandName={brand?.name} timeframe={timeframe} />)}
+            </div>
+          </div>
+
+          {/* Connections */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 14 }}>🔌</span>
+              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: T.textStrong }}>Data sources</h3>
+              <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 4, background: T.card, border: `1.5px solid ${T.amber}`, color: T.amber, fontWeight: 700, letterSpacing: "0.04em", fontFamily: "var(--m)" }}>DEMO</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 8 }}>
+              {connections.map(c => <ConnectionChip key={c.name} {...c} T={T} onConnect={() => alert(`${c.name} OAuth connection is coming soon. In production this opens a secure OAuth flow on the backend.`)} />)}
+            </div>
+            <p style={{ fontSize: 11, color: T.muted, margin: "10px 0 0", lineHeight: 1.55 }}>
+              🔒 <b style={{ color: T.text }}>How we'll handle your data:</b> OAuth tokens never touch your browser — they're stored server-side, encrypted, and only used to pull read-only metrics on a schedule. You can revoke access anytime from each platform's app settings.
+            </p>
+          </div>
+
+          {/* Quick actions */}
+          <div>
+            <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 800, color: T.textStrong }}>Quick actions</h3>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+              <button onClick={onGoToMatrix} style={{ padding: "14px 16px", borderRadius: 10, border: `1.5px solid ${T.green}`, background: theme === "dark" ? "rgba(120,220,160,0.08)" : "rgba(120,220,160,0.12)", textAlign: "left", cursor: "pointer", fontFamily: "var(--h)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4, fontFamily: "var(--m)" }}>Plan</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: T.textStrong, marginBottom: 3 }}>Run a scenario in the Profit Matrix →</div>
+                <div style={{ fontSize: 11.5, color: T.text, lineHeight: 1.45 }}>Map spend × ROAS against LTV and find the most profitable scaling path.</div>
+              </button>
+              <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" style={{ padding: "14px 16px", borderRadius: 10, border: `1.5px solid ${T.border}`, background: T.card, textDecoration: "none", display: "block" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.blue, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4, fontFamily: "var(--m)" }}>Talk to us</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: T.textStrong, marginBottom: 3 }}>Book a call with Social Enviro →</div>
+                <div style={{ fontSize: 11.5, color: T.text, lineHeight: 1.45 }}>Performance growth agency for e-commerce. socialenviro.ie</div>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── MAIN APP ── */
 export default function App() {
   // Brands
@@ -842,6 +1095,7 @@ export default function App() {
   const [overlay, setOverlay] = useState("none");
   const [mainView, setMainView] = useState("grid");
   const [selected, setSelected] = useState(null);
+  const [homeOpen, setHomeOpen] = useState(false);
   const tg = (k) => setOs(p => ({ ...p, [k]: !p[k] }));
 
   const effI = useMemo(() => deriveEffective(I), [I]);
@@ -879,7 +1133,7 @@ export default function App() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}`}</style>
 
       {/* HEADER */}
-      <div style={{ padding: "16px 26px 14px", borderBottom: `1.5px solid ${T.border}`, background: isDark ? "linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)" : "linear-gradient(180deg, rgba(0,0,0,0.015) 0%, transparent 100%)" }}>
+      <div style={{ padding: "16px 26px 14px 74px", borderBottom: `1.5px solid ${T.border}`, background: isDark ? "linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)" : "linear-gradient(180deg, rgba(0,0,0,0.015) 0%, transparent 100%)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           {/* Logo */}
           <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
@@ -912,7 +1166,17 @@ export default function App() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr" }}>
+      {/* COLLAPSED LEFT RAIL */}
+      <div style={{ position: "fixed", top: 0, bottom: 0, left: 0, width: 56, background: T.panel, borderRight: `1.5px solid ${T.border}`, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 14, gap: 10 }}>
+        <button onClick={() => setHomeOpen(true)} title="Home Dashboard" style={{ width: 40, height: 40, borderRadius: 9, border: `1.5px solid ${homeOpen ? T.green : T.border}`, background: homeOpen ? "rgba(120,220,160,0.15)" : T.card, color: homeOpen ? T.green : T.text, cursor: "pointer", fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>🏠</button>
+        <button onClick={() => setHomeOpen(false)} title="Profit Matrix" style={{ width: 40, height: 40, borderRadius: 9, border: `1.5px solid ${!homeOpen ? T.green : T.border}`, background: !homeOpen ? "rgba(120,220,160,0.15)" : T.card, color: !homeOpen ? T.green : T.text, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontFamily: "var(--m)" }}>◨</button>
+        <div style={{ flex: 1 }} />
+        <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" title="Social Enviro" style={{ width: 40, height: 40, borderRadius: 9, border: `1.5px solid ${T.border}`, background: T.card, color: T.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, textDecoration: "none", marginBottom: 14, letterSpacing: "0.05em" }}>SE</a>
+      </div>
+
+      <HomeDashboard open={homeOpen} onClose={() => setHomeOpen(false)} onGoToMatrix={() => setHomeOpen(false)} T={T} theme={theme} brand={brands[activeIdx]} />
+
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", paddingLeft: 56 }}>
         {/* LEFT — INPUTS */}
         <div style={{ borderRight: `1.5px solid ${T.border}`, padding: "14px 16px", overflowY: "auto", maxHeight: "calc(100vh - 72px)", background: T.sideBg }}>
 
