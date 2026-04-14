@@ -1065,25 +1065,8 @@ function HomeDashboard({ open, onClose, onGoToMatrix, T, brand, theme }) {
   );
 }
 
-/* ── MAIN APP ── */
-export default function App() {
-  // Brands
-  const [brands, setBrands] = useState(() => {
-    try { const raw = localStorage.getItem(LS_KEY); if (raw) return JSON.parse(raw); } catch {}
-    return DEFAULT_BRANDS;
-  });
-  const [activeIdx, setActiveIdx] = useState(() => {
-    try { const v = parseInt(localStorage.getItem(LS_ACTIVE) || "0", 10); return isNaN(v) ? 0 : v; } catch { return 0; }
-  });
-  const [theme, setTheme] = useState(() => {
-    try { return localStorage.getItem(LS_THEME) || "dark"; } catch { return "dark"; }
-  });
-  const T = THEMES[theme];
-
-  useEffect(() => { try { localStorage.setItem(LS_KEY, JSON.stringify(brands)); } catch {} }, [brands]);
-  useEffect(() => { try { localStorage.setItem(LS_ACTIVE, String(activeIdx)); } catch {} }, [activeIdx]);
-  useEffect(() => { try { localStorage.setItem(LS_THEME, theme); } catch {} }, [theme]);
-
+/* ── PROFIT MATRIX VIEW ── */
+function ProfitMatrixView({ T, theme, isDark, brands, setBrands, activeIdx }) {
   const I = brands[activeIdx]?.inputs ?? DEFAULTS;
   const setI = useCallback((updater) => {
     setBrands(prev => prev.map((b, i) => i === activeIdx ? { ...b, inputs: typeof updater === "function" ? updater(b.inputs) : updater } : b));
@@ -1107,76 +1090,9 @@ export default function App() {
   eng.grid.forEach(row => row.forEach(c => { if (c.netProfit > pN) { pN = c.netProfit; pkCell = c; } }));
   const cur = eng.current;
   const simple = I.mode === "simplified";
-  const isDark = theme === "dark";
-
-  // Brand mgmt
-  const addBrand = () => {
-    const name = prompt("Brand name?", `Brand ${brands.length + 1}`);
-    if (!name) return;
-    setBrands(prev => [...prev, newBrand(name)]);
-    setActiveIdx(brands.length);
-  };
-  const renameBrand = () => {
-    const name = prompt("Rename brand:", brands[activeIdx].name);
-    if (!name) return;
-    setBrands(prev => prev.map((b, i) => i === activeIdx ? { ...b, name } : b));
-  };
-  const deleteBrand = () => {
-    if (brands.length === 1) return alert("At least one brand is required.");
-    if (!confirm(`Delete "${brands[activeIdx].name}"? This can't be undone.`)) return;
-    setBrands(prev => prev.filter((_, i) => i !== activeIdx));
-    setActiveIdx(0);
-  };
 
   return (
-    <div style={{ "--m": "'JetBrains Mono', monospace", "--h": "'Space Grotesk', system-ui, sans-serif", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}`}</style>
-
-      {/* HEADER */}
-      <div style={{ padding: "16px 26px 14px 74px", borderBottom: `1.5px solid ${T.border}`, background: isDark ? "linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)" : "linear-gradient(180deg, rgba(0,0,0,0.015) 0%, transparent 100%)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          {/* Logo */}
-          <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
-            <img src="/social-enviro-logo.png" alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }}
-              style={{ height: 40, width: "auto", filter: isDark ? "invert(1) brightness(1.1)" : "none", background: "transparent" }} />
-            <div>
-              <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em", color: T.textStrong }}>Profit Matrix</h1>
-              <p style={{ margin: "2px 0 0", fontSize: 12, color: T.muted }}>by Social Enviro — scale profitably</p>
-            </div>
-          </a>
-
-          <div style={{ flex: 1 }} />
-
-          {/* Brand switcher */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 6px 5px 10px", background: T.card, border: `1.5px solid ${T.border}`, borderRadius: 8 }}>
-            <span style={{ fontSize: 10.5, color: T.muted, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--m)", fontWeight: 700 }}>Brand</span>
-            <select value={activeIdx} onChange={e => setActiveIdx(parseInt(e.target.value, 10))} style={{ background: "transparent", color: T.textStrong, border: "none", outline: "none", fontSize: 13, fontWeight: 700, padding: "4px 6px", cursor: "pointer", fontFamily: "var(--h)" }}>
-              {brands.map((b, i) => <option key={i} value={i} style={{ background: T.elev, color: T.textStrong }}>{b.name}</option>)}
-            </select>
-            <button onClick={renameBrand} title="Rename" style={{ background: "transparent", border: "none", color: T.muted, fontSize: 13, cursor: "pointer", padding: 4 }}>✎</button>
-            <button onClick={addBrand} title="New brand" style={{ background: "transparent", border: "none", color: T.green, fontSize: 15, cursor: "pointer", padding: 4, fontWeight: 700 }}>+</button>
-            <button onClick={deleteBrand} title="Delete brand" style={{ background: "transparent", border: "none", color: T.red, fontSize: 13, cursor: "pointer", padding: 4 }}>✕</button>
-          </div>
-
-          {/* Theme toggle */}
-          <button onClick={() => setTheme(isDark ? "light" : "dark")} title="Toggle theme"
-            style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${T.border}`, background: T.card, color: T.textStrong, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "var(--h)" }}>
-            {isDark ? "☀ Light" : "☾ Dark"}
-          </button>
-        </div>
-      </div>
-
-      {/* COLLAPSED LEFT RAIL */}
-      <div style={{ position: "fixed", top: 0, bottom: 0, left: 0, width: 56, background: T.panel, borderRight: `1.5px solid ${T.border}`, zIndex: 50, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 14, gap: 10 }}>
-        <button onClick={() => setHomeOpen(true)} title="Home Dashboard" style={{ width: 40, height: 40, borderRadius: 9, border: `1.5px solid ${homeOpen ? T.green : T.border}`, background: homeOpen ? "rgba(120,220,160,0.15)" : T.card, color: homeOpen ? T.green : T.text, cursor: "pointer", fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>🏠</button>
-        <button onClick={() => setHomeOpen(false)} title="Profit Matrix" style={{ width: 40, height: 40, borderRadius: 9, border: `1.5px solid ${!homeOpen ? T.green : T.border}`, background: !homeOpen ? "rgba(120,220,160,0.15)" : T.card, color: !homeOpen ? T.green : T.text, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontFamily: "var(--m)" }}>◨</button>
-        <div style={{ flex: 1 }} />
-        <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" title="Social Enviro" style={{ width: 40, height: 40, borderRadius: 9, border: `1.5px solid ${T.border}`, background: T.card, color: T.text, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, textDecoration: "none", marginBottom: 14, letterSpacing: "0.05em" }}>SE</a>
-      </div>
-
-      <HomeDashboard open={homeOpen} onClose={() => setHomeOpen(false)} onGoToMatrix={() => setHomeOpen(false)} T={T} theme={theme} brand={brands[activeIdx]} />
-
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", paddingLeft: 56 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr" }}>
         {/* LEFT — INPUTS */}
         <div style={{ borderRight: `1.5px solid ${T.border}`, padding: "14px 16px", overflowY: "auto", maxHeight: "calc(100vh - 72px)", background: T.sideBg }}>
 
@@ -1391,6 +1307,865 @@ export default function App() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SOCIAL ENVIRO COMMAND PLATFORM
+   ────────────────────────────────────────────────────────────────────────────
+   Everything below is the agency-ops layer (Watchdog, Tasks, Approvals,
+   Mission Control, Sign-In) wrapping the Profit Matrix tool above.
+   All data is currently MOCK — wire to backend by replacing mockData below.
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── MOCK DATA ─────────────────────────────────────────────────────────── */
+const TEAM = [
+  { id: "u_dylan", name: "Dylan Anderson", initials: "DA", role: "Founder", avatarColor: "#7c5cff" },
+  { id: "u_james", name: "James Kelly", initials: "JK", role: "Head of Strategy", avatarColor: "#5f9ef7" },
+  { id: "u_aoife", name: "Aoife Murphy", initials: "AM", role: "Creative Strategist", avatarColor: "#ff7eb9" },
+  { id: "u_sean",  name: "Seán O'Brien", initials: "SO", role: "Designer", avatarColor: "#ffbe50" },
+  { id: "u_niamh", name: "Niamh Walsh", initials: "NW", role: "Editor", avatarColor: "#78dca0" },
+  { id: "u_conor", name: "Conor Doyle", initials: "CD", role: "Account Manager", avatarColor: "#4ecdc4" },
+];
+
+const STATUS_META = {
+  Critical:     { color: "#ff5470", bg: "rgba(255,84,112,0.14)" },
+  "High Risk":  { color: "#ff8a4a", bg: "rgba(255,138,74,0.14)" },
+  Moderate:     { color: "#ffbe50", bg: "rgba(255,190,80,0.14)" },
+  Healthy:      { color: "#78dca0", bg: "rgba(120,220,160,0.14)" },
+  "Upsell Ready": { color: "#a78bfa", bg: "rgba(167,139,250,0.16)" },
+};
+
+const MOCK_BRANDS = [
+  { id: "b_acme",   name: "Acme Corp",      initials: "AC", color: "#ff7eb9", status: "Moderate",     risk: 35,  priority: 21,  delta: 0,   signals: [
+    { kind: "warn", icon: "⚠", title: "Overdue deliverables", detail: "10 items stuck for 14+ days → +25 pts", weight: 25 },
+    { kind: "warn", icon: "📞", title: "No recent client call", detail: "Last call 6 weeks ago", weight: 10 },
+  ], lastActivity: "6m ago", revenueAtRisk: 0 },
+  { id: "b_aura",   name: "Aura & Ash",     initials: "AU", color: "#ff9f7a", status: "Upsell Ready", risk: 15,  priority: 15,  delta: -5,  signals: [], lastActivity: "1d ago", revenueAtRisk: 0 },
+  { id: "b_birch",  name: "Birch & Bloom",  initials: "BI", color: "#a8e6cf", status: "Healthy",      risk: 5,   priority: 5,   delta: -1,  signals: [], lastActivity: "1d ago", revenueAtRisk: 0 },
+  { id: "b_bloom",  name: "Bloom & Thread", initials: "BL", color: "#ff5470", status: "Critical",     risk: 88,  priority: 100, delta: 14,  signals: [
+    { kind: "bad", icon: "💸", title: "$7,480 revenue at risk", detail: "Q3 retainer contract pending renewal" },
+  ], lastActivity: "1h ago", revenueAtRisk: 7480 },
+  { id: "b_cinder", name: "Cinder & Co.",   initials: "CI", color: "#ff8a4a", status: "Healthy",      risk: 10,  priority: 6,   delta: 0,   signals: [
+    { kind: "warn", icon: "📞", title: "No recent client call", detail: "No calls logged — +10 pts", weight: 10 },
+  ], lastActivity: "6m ago", revenueAtRisk: 0 },
+  { id: "b_cove",   name: "Cove & Craft",   initials: "CO", color: "#ffbe50", status: "Moderate",     risk: 42,  priority: 44,  delta: 0,   signals: [
+    { kind: "warn", icon: "💸", title: "$2,730 revenue at risk", detail: "Slow approvals slowing media" },
+  ], lastActivity: "14h ago", revenueAtRisk: 2730 },
+  { id: "b_crest",  name: "Crest & Copper", initials: "CR", color: "#ff7eb9", status: "Healthy",      risk: 10,  priority: 10,  delta: -2,  signals: [], lastActivity: "2d ago", revenueAtRisk: 0 },
+  { id: "b_drift",  name: "Drift & Dune",   initials: "DR", color: "#5f9ef7", status: "High Risk",    risk: 58,  priority: 70,  delta: 3,   signals: [
+    { kind: "bad", icon: "📉", title: "MER trending down 18%", detail: "Last 7 days vs prior" },
+    { kind: "warn", icon: "🎬", title: "Creative refresh overdue", detail: "Hooks stale — fatigue rising" },
+  ], lastActivity: "2h ago", revenueAtRisk: 4200 },
+  { id: "b_ember",  name: "Ember & Oak",    initials: "EM", color: "#ff5470", status: "High Risk",    risk: 52,  priority: 62,  delta: 8,   signals: [
+    { kind: "warn", icon: "🎯", title: "NC-CPA over LTV breakeven", detail: "Pull back spend or fix funnel" },
+  ], lastActivity: "5h ago", revenueAtRisk: 1900 },
+];
+
+const MOCK_TASKS = [
+  { id: "t1", title: "Static ad set — Spring launch (4 variants)", brandId: "b_aura",   assignee: "u_aoife", status: "in_progress", type: "Static Ads",   priority: "High", due: "+2d", createdBy: "u_dylan" },
+  { id: "t2", title: "UGC creator brief — fitness vertical",       brandId: "b_drift",  assignee: "u_aoife", status: "todo",        type: "Creator Brief", priority: "High", due: "today", createdBy: "u_james" },
+  { id: "t3", title: "Edit hook tests — 3 variations",              brandId: "b_bloom",  assignee: "u_niamh", status: "in_progress", type: "Video Ads",    priority: "Critical", due: "today", createdBy: "u_dylan" },
+  { id: "t4", title: "Carousel design — best sellers",              brandId: "b_birch",  assignee: "u_sean",  status: "review",      type: "Static Ads",   priority: "Medium", due: "+3d", createdBy: "u_conor" },
+  { id: "t5", title: "Landing page rewrite — collection page",      brandId: "b_cove",   assignee: "u_james", status: "todo",        type: "Copy",         priority: "Medium", due: "+5d", createdBy: "u_dylan" },
+  { id: "t6", title: "Monthly performance report",                  brandId: "b_acme",   assignee: "u_conor", status: "review",      type: "Report",       priority: "Medium", due: "+1d", createdBy: "u_dylan" },
+  { id: "t7", title: "Founder testimonial brief",                   brandId: "b_aura",   assignee: "u_aoife", status: "done",        type: "Creator Brief", priority: "Low",  due: "-1d", createdBy: "u_james" },
+  { id: "t8", title: "Renewal proposal deck",                       brandId: "b_bloom",  assignee: "u_dylan", status: "todo",        type: "Strategy",     priority: "Critical", due: "tomorrow", createdBy: "u_dylan" },
+  { id: "t9", title: "Meta auction analysis",                       brandId: "b_drift",  assignee: "u_james", status: "in_progress", type: "Analysis",     priority: "High", due: "+3d", createdBy: "u_dylan" },
+  { id: "t10", title: "Static ad — promo banner",                   brandId: "b_crest",  assignee: "u_sean",  status: "done",        type: "Static Ads",   priority: "Low",  due: "-2d", createdBy: "u_conor" },
+];
+
+const TASK_TYPES = ["Static Ads", "Video Ads", "Creator Brief", "Copy", "Strategy", "Report", "Analysis", "Design", "Other"];
+const TASK_PRIORITIES = ["Critical", "High", "Medium", "Low"];
+const TASK_STATUSES = [
+  { id: "todo", label: "To Do" },
+  { id: "in_progress", label: "In Progress" },
+  { id: "review", label: "Needs Approval" },
+  { id: "done", label: "Done" },
+];
+
+const MOCK_APPROVALS = [
+  { id: "a1", taskId: "t4", title: "Carousel design — best sellers",        brandId: "b_birch", submittedBy: "u_sean",  type: "Design", submitted: "2h ago", thumbnail: "🎨" },
+  { id: "a2", taskId: "t6", title: "Monthly performance report — Acme",     brandId: "b_acme",  submittedBy: "u_conor", type: "Report", submitted: "4h ago", thumbnail: "📊" },
+  { id: "a3", taskId: null, title: "Static ad concept — limited drop",      brandId: "b_aura",  submittedBy: "u_aoife", type: "Static Ads",  submitted: "1d ago", thumbnail: "🖼" },
+  { id: "a4", taskId: null, title: "Hook script — winter collection",       brandId: "b_drift", submittedBy: "u_aoife", type: "Copy",   submitted: "1d ago", thumbnail: "📝" },
+];
+
+const MOCK_SLACK = [
+  { id: "s1", brandId: "b_drift", channel: "#drift-and-dune", from: "Sarah (Drift CEO)", time: "23m ago", text: "Hey team — saw the Q3 numbers. Can we set up a call to discuss the creative refresh strategy? Last few weeks have felt off.", urgency: "high" },
+  { id: "s2", brandId: "b_bloom", channel: "#bloom-thread", from: "Mike (Bloom Marketing)", time: "1h ago", text: "Renewal docs incoming end of this week. Want to flag — budget might be -20% next cycle.", urgency: "critical" },
+  { id: "s3", brandId: "b_aura", channel: "#aura-ash", from: "Liz (Aura Founder)", time: "3h ago", text: "Loved the new hooks. Can we explore opening a Google Ads channel? Wondering about budget split.", urgency: "medium" },
+];
+
+const MOCK_CALL_NOTES = [
+  { id: "c1", brandId: "b_drift", title: "Drift & Dune — weekly sync", date: "Yesterday", duration: "32 min", attendees: ["Sarah (Drift)", "James", "Aoife"], summary: "Discussed declining MER. Sarah open to creative overhaul. Budget locked through Q3 but renewal at risk if numbers don't improve in 30 days.", actions: ["Aoife: brief 4 new UGC creators by Fri", "James: creative audit + recommendations doc by Wed"] },
+  { id: "c2", brandId: "b_aura", title: "Aura & Ash — onboarding call #2", date: "2 days ago", duration: "45 min", attendees: ["Liz (Aura)", "Dylan", "Conor"], summary: "Aura ready to scale ad spend 50% in next quarter. Strong LTV signals. Considering Google Ads as second channel — opportunity for upsell.", actions: ["Conor: draft Google Ads scope by Mon", "Dylan: present scaling plan in next sync"] },
+];
+
+const ALL_TIME_TIMEFRAMES = ["1d", "7d", "30d", "90d"];
+
+/* ── SHARED UI HELPERS ─────────────────────────────────────────────────── */
+function Avatar({ user, size = 28, T }) {
+  if (!user) return null;
+  return (
+    <div title={user.name} style={{ width: size, height: size, borderRadius: "50%", background: user.avatarColor, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.4, fontWeight: 800, fontFamily: "var(--h)", border: `1.5px solid ${T.bg}`, flexShrink: 0 }}>
+      {user.initials}
+    </div>
+  );
+}
+
+function StatusBadge({ status, delta, T }) {
+  const meta = STATUS_META[status] || { color: T.muted, bg: T.card };
+  const dColor = !delta ? T.muted : delta > 0 ? T.red : T.green;
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 700, fontFamily: "var(--m)" }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: meta.color }} />
+        {status}
+      </span>
+      {delta !== 0 && delta !== undefined && (
+        <span style={{ fontSize: 11, color: dColor, fontWeight: 700, fontFamily: "var(--m)" }}>
+          {delta > 0 ? "↗" : "↘"} {Math.abs(delta)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function RiskDonut({ value, max = 100, label = "RISK", T, size = 60 }) {
+  const stroke = 5;
+  const r = (size - stroke) / 2;
+  const cx = size / 2, cy = size / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(1, value / max));
+  const dash = circ * pct;
+  const color = value >= 70 ? "#ff5470" : value >= 40 ? "#ff8a4a" : value >= 20 ? "#ffbe50" : "#78dca0";
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={T.border} strokeWidth={stroke} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${dash} ${circ - dash}`} transform={`rotate(-90 ${cx} ${cy})`} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+        <div style={{ fontSize: size * 0.32, fontWeight: 800, color: T.textStrong, fontFamily: "var(--h)" }}>{value}</div>
+        <div style={{ fontSize: 8, fontWeight: 700, color: T.muted, letterSpacing: "0.08em", fontFamily: "var(--m)", marginTop: 2 }}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function PriorityChip({ priority, T }) {
+  const colors = { Critical: "#ff5470", High: "#ff8a4a", Medium: "#ffbe50", Low: "#78dca0" };
+  const c = colors[priority] || T.muted;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 999, background: c + "22", color: c, fontSize: 10.5, fontWeight: 700, fontFamily: "var(--m)" }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: c }} />{priority}
+    </span>
+  );
+}
+
+/* ── SIDEBAR ───────────────────────────────────────────────────────────── */
+const NAV_ITEMS = [
+  { section: "COMMAND", items: [
+    { id: "watchdog", label: "Watchdog", icon: "🛡" },
+    { id: "mission",  label: "Mission Control", icon: "🎯" },
+  ]},
+  { section: "ANALYTICS", items: [
+    { id: "matrix",   label: "Profit Matrix",   icon: "📊" },
+    { id: "shopify",  label: "Shopify Data",    icon: "🛒", soon: true },
+    { id: "google",   label: "Google Ads",      icon: "G",  soon: true },
+    { id: "meta",     label: "Meta Ads",        icon: "ⓕ", soon: true },
+    { id: "email",    label: "Email Marketing", icon: "✉", soon: true },
+    { id: "reports",  label: "Reports",         icon: "📈", soon: true },
+  ]},
+  { section: "OPERATIONS", items: [
+    { id: "tasks",     label: "Tasks",     icon: "✅" },
+    { id: "approvals", label: "Approvals", icon: "👁" },
+  ]},
+  { section: "INTELLIGENCE", items: [
+    { id: "slack",  label: "Slack Inbox",     icon: "💬" },
+    { id: "calls",  label: "Call Notes",      icon: "📞" },
+  ]},
+];
+
+function Sidebar({ T, theme, setTheme, isDark, view, setView, brands, activeIdx, setActiveIdx, addBrand, currentUser, signOut }) {
+  return (
+    <div style={{ width: 240, background: T.panel, borderRight: `1.5px solid ${T.border}`, display: "flex", flexDirection: "column", height: "100vh", position: "sticky", top: 0, overflowY: "auto" }}>
+      {/* Logo */}
+      <div style={{ padding: "16px 16px 12px", borderBottom: `1.5px solid ${T.border}` }}>
+        <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none" }}>
+          <img src="/social-enviro-logo.png" alt="SE" onError={e => { e.currentTarget.style.display = "none"; }} style={{ height: 28, filter: isDark ? "invert(1) brightness(1.1)" : "none" }} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: T.textStrong, letterSpacing: "-0.01em" }}>Social Enviro</div>
+            <div style={{ fontSize: 10, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.04em" }}>COMMAND OS</div>
+          </div>
+        </a>
+      </div>
+
+      {/* Brand switcher */}
+      <div style={{ padding: "12px 14px", borderBottom: `1.5px solid ${T.border}` }}>
+        <div style={{ fontSize: 9.5, fontWeight: 700, color: T.muted, letterSpacing: "0.1em", marginBottom: 6, fontFamily: "var(--m)" }}>CLIENT</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 8px", borderRadius: 7, background: T.card, border: `1.5px solid ${T.border}` }}>
+          <select value={activeIdx} onChange={e => setActiveIdx(parseInt(e.target.value, 10))} style={{ flex: 1, background: "transparent", color: T.textStrong, border: "none", outline: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--h)" }}>
+            {brands.map((b, i) => <option key={i} value={i} style={{ background: T.elev, color: T.textStrong }}>{b.name}</option>)}
+          </select>
+          <button onClick={addBrand} title="Add brand" style={{ background: "transparent", border: "none", color: T.green, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 4px" }}>+</button>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <div style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
+        {NAV_ITEMS.map(group => (
+          <div key={group.section} style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: T.muted, letterSpacing: "0.1em", padding: "4px 10px", marginBottom: 3, fontFamily: "var(--m)" }}>{group.section}</div>
+            {group.items.map(it => {
+              const active = view === it.id;
+              return (
+                <button key={it.id} onClick={() => !it.soon && setView(it.id)} disabled={it.soon}
+                  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", borderRadius: 7, border: "none", background: active ? "rgba(120,220,160,0.14)" : "transparent", color: active ? T.green : it.soon ? T.muted : T.text, cursor: it.soon ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, marginBottom: 1, textAlign: "left", fontFamily: "var(--h)" }}>
+                  <span style={{ width: 18, textAlign: "center", fontSize: 14 }}>{it.icon}</span>
+                  <span style={{ flex: 1 }}>{it.label}</span>
+                  {it.soon && <span style={{ fontSize: 9, padding: "2px 5px", borderRadius: 3, background: T.card, color: T.muted, fontWeight: 700, letterSpacing: "0.04em", fontFamily: "var(--m)" }}>SOON</span>}
+                  {active && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green }} />}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Footer: theme + user */}
+      <div style={{ padding: "10px 12px", borderTop: `1.5px solid ${T.border}` }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <button onClick={() => setTheme("light")} title="Light" style={{ flex: 1, padding: "5px", borderRadius: 6, border: `1.5px solid ${!isDark ? T.amber : T.border}`, background: !isDark ? "rgba(255,190,80,0.15)" : T.card, color: !isDark ? T.amber : T.muted, cursor: "pointer", fontSize: 13 }}>☀</button>
+          <button onClick={() => setTheme("dark")} title="Dark" style={{ flex: 1, padding: "5px", borderRadius: 6, border: `1.5px solid ${isDark ? T.blue : T.border}`, background: isDark ? "rgba(120,170,237,0.15)" : T.card, color: isDark ? T.blue : T.muted, cursor: "pointer", fontSize: 13 }}>☾</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 9px", borderRadius: 7, background: T.card, border: `1.5px solid ${T.border}` }}>
+          <Avatar user={currentUser} size={30} T={T} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: T.textStrong, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentUser.name}</div>
+            <div style={{ fontSize: 10.5, color: T.muted, fontFamily: "var(--m)" }}>{currentUser.role}</div>
+          </div>
+          <button onClick={signOut} title="Sign out" style={{ background: "transparent", border: "none", color: T.muted, cursor: "pointer", fontSize: 14 }}>↪</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── PAGE HEADER ────────────────────────────────────────────────────────── */
+function PageHeader({ icon, title, subtitle, right, T }) {
+  return (
+    <div style={{ padding: "20px 28px 16px", borderBottom: `1.5px solid ${T.border}` }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: T.textStrong, letterSpacing: "-0.02em", display: "flex", alignItems: "center", gap: 9 }}>
+            <span style={{ fontSize: 22 }}>{icon}</span>{title}
+          </h1>
+          {subtitle && <p style={{ margin: "5px 0 0", fontSize: 13.5, color: T.muted, lineHeight: 1.5, maxWidth: 720 }}>{subtitle}</p>}
+        </div>
+        {right && <div>{right}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ── WATCHDOG (Command Centre) ─────────────────────────────────────────── */
+function Watchdog({ T, theme, brands }) {
+  const [tab, setTab] = useState("health");
+  const [filter, setFilter] = useState("All");
+  const [sort, setSort] = useState("A–Z");
+
+  const counts = useMemo(() => {
+    const c = { All: MOCK_BRANDS.length, Critical: 0, "High Risk": 0, Moderate: 0, Healthy: 0, "Upsell Ready": 0 };
+    MOCK_BRANDS.forEach(b => { c[b.status] = (c[b.status] || 0) + 1; });
+    return c;
+  }, []);
+
+  const filtered = useMemo(() => {
+    let arr = filter === "All" ? [...MOCK_BRANDS] : MOCK_BRANDS.filter(b => b.status === filter);
+    if (sort === "A–Z") arr.sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "Priority") arr.sort((a, b) => b.priority - a.priority);
+    if (sort === "Risk") arr.sort((a, b) => b.risk - a.risk);
+    return arr;
+  }, [filter, sort]);
+
+  const totalAtRisk = MOCK_BRANDS.reduce((s, b) => s + (b.revenueAtRisk || 0), 0);
+  const avgPriority = Math.round(MOCK_BRANDS.reduce((s, b) => s + b.priority, 0) / MOCK_BRANDS.length);
+
+  const TABS = [
+    { id: "health", label: "Health Board", icon: "🛡" },
+    { id: "slack",  label: "Slack Intelligence", icon: "💬" },
+    { id: "email",  label: "Email Intelligence", icon: "✉" },
+    { id: "calls",  label: "Call Intelligence",  icon: "📞" },
+    { id: "rules",  label: "Rules & Config",     icon: "⚙" },
+  ];
+
+  const FILTERS = [
+    { k: "All", color: T.blue },
+    { k: "Critical", color: STATUS_META.Critical.color },
+    { k: "High Risk", color: STATUS_META["High Risk"].color },
+    { k: "Moderate", color: STATUS_META.Moderate.color },
+    { k: "Healthy", color: STATUS_META.Healthy.color },
+    { k: "Upsell Ready", color: STATUS_META["Upsell Ready"].color },
+  ];
+
+  return (
+    <div>
+      <PageHeader T={T} icon="🛡" title="Watchdog" subtitle="Automated metric monitoring and client health scoring across all accounts." />
+
+      <div style={{ padding: "16px 28px" }}>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, padding: 4, background: T.card, border: `1.5px solid ${T.border}`, borderRadius: 9, marginBottom: 16, width: "fit-content", maxWidth: "100%", overflowX: "auto" }}>
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "7px 14px", borderRadius: 6, fontSize: 12.5, fontWeight: 700, cursor: "pointer", border: "none", background: tab === t.id ? T.panel : "transparent", color: tab === t.id ? T.textStrong : T.muted, fontFamily: "var(--h)", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+              <span>{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "health" && (
+          <>
+            {/* Filter pills */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+              {FILTERS.map(f => {
+                const active = filter === f.k;
+                const n = counts[f.k] || 0;
+                return (
+                  <button key={f.k} onClick={() => setFilter(f.k)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, border: `1.5px solid ${active ? f.color : T.border}`, background: active ? f.color + "22" : T.card, color: active ? f.color : T.text, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--h)" }}>
+                    <span style={{ background: f.color, color: "#fff", borderRadius: 999, padding: "1px 7px", fontSize: 10.5, fontWeight: 800 }}>{n}</span>
+                    {f.k}
+                  </button>
+                );
+              })}
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14, fontSize: 12, color: T.muted }}>
+                <span>avg priority <b style={{ color: T.text }}>{avgPriority}</b></span>
+                <span style={{ color: T.red, fontWeight: 700 }}>${totalAtRisk.toLocaleString()} at risk</span>
+              </div>
+            </div>
+
+            {/* Sort + actions */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginBottom: 14 }}>
+              <div style={{ display: "flex", gap: 3, padding: 3, background: T.card, border: `1.5px solid ${T.border}`, borderRadius: 7 }}>
+                {["A–Z", "Priority", "Risk"].map(o => (
+                  <button key={o} onClick={() => setSort(o)} style={{ padding: "5px 11px", borderRadius: 5, fontSize: 11.5, fontWeight: 700, cursor: "pointer", border: "none", background: sort === o ? T.panel : "transparent", color: sort === o ? T.textStrong : T.muted, fontFamily: "var(--h)" }}>{o}</button>
+                ))}
+              </div>
+              <button style={{ padding: "7px 14px", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.green}`, background: "rgba(120,220,160,0.14)", color: T.green, fontFamily: "var(--h)", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                ⟳ Run Evaluation
+              </button>
+            </div>
+
+            {/* Brand cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: 14 }}>
+              {filtered.map(b => {
+                const meta = STATUS_META[b.status];
+                const isCritical = b.status === "Critical";
+                return (
+                  <div key={b.id} style={{ borderRadius: 11, border: `1.5px solid ${isCritical ? meta.color : T.border}`, background: T.panel, padding: "14px 16px", boxShadow: isCritical ? `0 0 0 2px ${meta.color}22` : "none" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 8, background: b.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, fontFamily: "var(--h)", flexShrink: 0 }}>{b.initials}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: T.textStrong, marginBottom: 4 }}>{b.name}</div>
+                        <StatusBadge T={T} status={b.status} delta={b.delta} />
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                        <RiskDonut value={b.risk} T={T} size={56} />
+                        <div style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: T.blue, lineHeight: 1, fontFamily: "var(--m)" }}>{b.priority}</div>
+                          <div style={{ fontSize: 8.5, fontWeight: 700, color: T.muted, letterSpacing: "0.07em", fontFamily: "var(--m)", marginTop: 2 }}>PRIORITY</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Signals */}
+                    <div style={{ marginTop: 14 }}>
+                      {b.signals.length === 0 ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 11px", borderRadius: 7, background: "rgba(120,220,160,0.08)", border: `1.5px solid ${T.border}` }}>
+                          <span style={{ color: T.green }}>✓</span>
+                          <span style={{ fontSize: 12, color: T.text }}>No active risk signals</span>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {b.signals.map((s, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "8px 11px", borderRadius: 7, background: s.kind === "bad" ? "rgba(255,84,112,0.08)" : "rgba(255,190,80,0.08)", border: `1.5px solid ${s.kind === "bad" ? "rgba(255,84,112,0.2)" : "rgba(255,190,80,0.2)"}` }}>
+                              <span style={{ fontSize: 13 }}>{s.icon}</span>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: T.textStrong }}>{s.title}</div>
+                                <div style={{ fontSize: 11, color: T.muted, marginTop: 1 }}>{s.detail}</div>
+                              </div>
+                              {s.weight && <span style={{ fontSize: 11, color: s.kind === "bad" ? "#ff5470" : "#ffbe50", fontWeight: 800, fontFamily: "var(--m)" }}>+{s.weight}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, paddingTop: 10, borderTop: `1px solid ${T.borderFaint}` }}>
+                      <span style={{ fontSize: 11, color: T.muted, fontFamily: "var(--m)" }}>● {b.lastActivity}</span>
+                      <span style={{ fontSize: 11, color: T.muted, fontFamily: "var(--m)" }}>{b.signals.length} signal{b.signals.length === 1 ? "" : "s"}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {tab === "slack" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ padding: "12px 14px", borderRadius: 9, background: T.card, border: `1.5px solid ${T.amber}40`, fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>
+              <b style={{ color: T.amber }}>DEMO:</b> Real version requires connecting your Slack workspace via OAuth. Once connected, this view ingests messages from client channels, classifies urgency, and surfaces requests that need a response.
+            </div>
+            {MOCK_SLACK.map(m => {
+              const brand = MOCK_BRANDS.find(b => b.id === m.brandId);
+              const u = m.urgency === "critical" ? "#ff5470" : m.urgency === "high" ? "#ff8a4a" : "#ffbe50";
+              return (
+                <div key={m.id} style={{ padding: "13px 16px", borderRadius: 9, background: T.panel, border: `1.5px solid ${T.border}`, borderLeft: `3px solid ${u}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 6, background: brand?.color || T.card, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 10, fontFamily: "var(--h)" }}>{brand?.initials}</div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: T.textStrong }}>{brand?.name}</span>
+                    <span style={{ fontSize: 11.5, color: T.muted }}>{m.channel} · {m.from}</span>
+                    <span style={{ marginLeft: "auto", fontSize: 11, color: T.muted, fontFamily: "var(--m)" }}>{m.time}</span>
+                    <span style={{ padding: "2px 8px", borderRadius: 999, background: u + "22", color: u, fontSize: 10.5, fontWeight: 700, fontFamily: "var(--m)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{m.urgency}</span>
+                  </div>
+                  <div style={{ fontSize: 13.5, color: T.text, lineHeight: 1.55 }}>{m.text}</div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                    <button style={{ padding: "5px 10px", borderRadius: 6, fontSize: 11.5, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.green}`, background: "rgba(120,220,160,0.14)", color: T.green }}>+ Create task</button>
+                    <button style={{ padding: "5px 10px", borderRadius: 6, fontSize: 11.5, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.border}`, background: T.card, color: T.text }}>Mark handled</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {tab === "calls" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ padding: "12px 14px", borderRadius: 9, background: T.card, border: `1.5px solid ${T.amber}40`, fontSize: 12.5, color: T.text, lineHeight: 1.5 }}>
+              <b style={{ color: T.amber }}>DEMO:</b> Real version pulls Gemini / Otter / Fireflies / Granola transcripts, summarizes, and suggests tasks per call.
+            </div>
+            {MOCK_CALL_NOTES.map(c => {
+              const brand = MOCK_BRANDS.find(b => b.id === c.brandId);
+              return (
+                <div key={c.id} style={{ padding: "16px 18px", borderRadius: 9, background: T.panel, border: `1.5px solid ${T.border}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: brand?.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 }}>{brand?.initials}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: T.textStrong }}>{c.title}</div>
+                      <div style={{ fontSize: 11.5, color: T.muted }}>{c.date} · {c.duration} · {c.attendees.join(", ")}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 13, color: T.text, lineHeight: 1.6, marginBottom: 10 }}>{c.summary}</div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5, fontFamily: "var(--m)" }}>Suggested actions</div>
+                    {c.actions.map((a, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", fontSize: 12.5, color: T.text }}>
+                        <span style={{ color: T.green }}>→</span> {a}
+                        <button style={{ marginLeft: "auto", padding: "3px 9px", borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: "pointer", border: `1.5px solid ${T.border}`, background: T.card, color: T.text }}>Create task</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {(tab === "email" || tab === "rules") && (
+          <div style={{ padding: "32px 24px", textAlign: "center", borderRadius: 11, border: `1.5px dashed ${T.border}`, background: T.card }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🚧</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.textStrong, marginBottom: 4 }}>Coming soon</div>
+            <div style={{ fontSize: 12.5, color: T.muted, maxWidth: 400, margin: "0 auto" }}>
+              {tab === "email" ? "Gmail OAuth integration to scan client threads for sentiment and unanswered requests." : "Configure scoring weights, alert thresholds, and signal sources."}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── MISSION CONTROL ───────────────────────────────────────────────────── */
+function MissionControl({ T, currentUser, setView, setTaskFilter }) {
+  const myTasks = MOCK_TASKS.filter(t => t.assignee === currentUser.id && t.status !== "done");
+  const criticalBrands = MOCK_BRANDS.filter(b => b.status === "Critical" || b.status === "High Risk").sort((a, b) => b.priority - a.priority);
+  const dueToday = MOCK_TASKS.filter(t => (t.due === "today" || t.due === "tomorrow") && t.status !== "done");
+  const pendingApprovals = MOCK_APPROVALS;
+  const totalAtRisk = MOCK_BRANDS.reduce((s, b) => s + (b.revenueAtRisk || 0), 0);
+
+  const StatCard = ({ label, value, sub, color, onClick }) => (
+    <button onClick={onClick} style={{ padding: "16px 18px", borderRadius: 10, background: T.panel, border: `1.5px solid ${T.border}`, textAlign: "left", cursor: onClick ? "pointer" : "default", fontFamily: "var(--h)" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: "var(--m)", marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: color || T.textStrong, lineHeight: 1, letterSpacing: "-0.02em" }}>{value}</div>
+      {sub && <div style={{ fontSize: 11.5, color: T.muted, marginTop: 5 }}>{sub}</div>}
+    </button>
+  );
+
+  return (
+    <div>
+      <PageHeader T={T} icon="🎯" title="Mission Control" subtitle={`Welcome back, ${currentUser.name.split(" ")[0]}. Here's what needs your attention right now.`} />
+
+      <div style={{ padding: "16px 28px" }}>
+        {/* Top stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 22 }}>
+          <StatCard label="My Open Tasks" value={myTasks.length} sub="Across all clients" color={T.green} onClick={() => setView("tasks")} />
+          <StatCard label="Critical Clients" value={criticalBrands.length} sub="Need intervention" color={T.red} onClick={() => setView("watchdog")} />
+          <StatCard label="Awaiting Approval" value={pendingApprovals.length} sub="In review queue" color={T.amber} onClick={() => setView("approvals")} />
+          <StatCard label="Due Today / Tomorrow" value={dueToday.length} sub="Across the team" color={T.blue} onClick={() => setView("tasks")} />
+          <StatCard label="Revenue at Risk" value={`$${totalAtRisk.toLocaleString()}`} sub="From at-risk accounts" color={T.red} onClick={() => setView("watchdog")} />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {/* My tasks */}
+          <div style={{ borderRadius: 10, background: T.panel, border: `1.5px solid ${T.border}`, padding: "16px 18px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: T.textStrong }}>📌 My Tasks</h3>
+              <button onClick={() => setView("tasks")} style={{ background: "transparent", border: "none", color: T.green, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--h)" }}>View all →</button>
+            </div>
+            {myTasks.length === 0 ? (
+              <div style={{ padding: "20px 0", fontSize: 13, color: T.muted, textAlign: "center" }}>You're all caught up 🎉</div>
+            ) : myTasks.map(t => {
+              const brand = MOCK_BRANDS.find(b => b.id === t.brandId);
+              return (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderTop: `1px solid ${T.borderFaint}` }}>
+                  <div style={{ width: 4, alignSelf: "stretch", borderRadius: 2, background: t.priority === "Critical" ? "#ff5470" : t.priority === "High" ? "#ff8a4a" : t.priority === "Medium" ? "#ffbe50" : "#78dca0" }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 2 }}>{t.title}</div>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: "var(--m)" }}>{brand?.name} · {t.type} · due {t.due}</div>
+                  </div>
+                  <PriorityChip priority={t.priority} T={T} />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Critical clients */}
+          <div style={{ borderRadius: 10, background: T.panel, border: `1.5px solid ${T.border}`, padding: "16px 18px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: T.textStrong }}>🚨 Clients in need of care</h3>
+              <button onClick={() => setView("watchdog")} style={{ background: "transparent", border: "none", color: T.green, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--h)" }}>Watchdog →</button>
+            </div>
+            {criticalBrands.map(b => (
+              <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderTop: `1px solid ${T.borderFaint}` }}>
+                <div style={{ width: 32, height: 32, borderRadius: 7, background: b.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 }}>{b.initials}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.textStrong, marginBottom: 2 }}>{b.name}</div>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: "var(--m)" }}>Risk {b.risk} · Priority {b.priority}{b.revenueAtRisk ? ` · $${b.revenueAtRisk.toLocaleString()} at risk` : ""}</div>
+                </div>
+                <StatusBadge status={b.status} delta={b.delta} T={T} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── TASKS ─────────────────────────────────────────────────────────────── */
+function TasksView({ T, currentUser, brands }) {
+  const [tasks, setTasks] = useState(MOCK_TASKS);
+  const [filterAssignee, setFilterAssignee] = useState("all");
+  const [filterBrand, setFilterBrand] = useState("all");
+  const [showNew, setShowNew] = useState(false);
+
+  const filtered = tasks.filter(t =>
+    (filterAssignee === "all" || t.assignee === filterAssignee) &&
+    (filterBrand === "all" || t.brandId === filterBrand)
+  );
+
+  const moveTask = (id, status) => setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+  const addTask = (data) => {
+    setTasks(prev => [{ id: `t_${Date.now()}`, status: "todo", createdBy: currentUser.id, ...data }, ...prev]);
+    setShowNew(false);
+  };
+
+  return (
+    <div>
+      <PageHeader T={T} icon="✅" title="Tasks" subtitle="Assign and track creative briefs, static & video ads, copy, design and strategy work across the team."
+        right={<button onClick={() => setShowNew(true)} style={{ padding: "9px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1.5px solid ${T.green}`, background: T.green, color: "#0c0e16", fontFamily: "var(--h)" }}>+ New Task</button>} />
+
+      <div style={{ padding: "16px 28px" }}>
+        {/* Filters */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)} style={{ padding: "7px 10px", borderRadius: 7, border: `1.5px solid ${T.border}`, background: T.card, color: T.text, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--h)" }}>
+            <option value="all" style={{ background: T.elev }}>All assignees</option>
+            <option value={currentUser.id} style={{ background: T.elev }}>Just me</option>
+            {TEAM.map(u => <option key={u.id} value={u.id} style={{ background: T.elev }}>{u.name}</option>)}
+          </select>
+          <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)} style={{ padding: "7px 10px", borderRadius: 7, border: `1.5px solid ${T.border}`, background: T.card, color: T.text, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--h)" }}>
+            <option value="all" style={{ background: T.elev }}>All clients</option>
+            {MOCK_BRANDS.map(b => <option key={b.id} value={b.id} style={{ background: T.elev }}>{b.name}</option>)}
+          </select>
+          <div style={{ marginLeft: "auto", fontSize: 12, color: T.muted }}>{filtered.length} task{filtered.length === 1 ? "" : "s"}</div>
+        </div>
+
+        {/* Kanban */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          {TASK_STATUSES.map(col => {
+            const items = filtered.filter(t => t.status === col.id);
+            return (
+              <div key={col.id} style={{ background: T.card, borderRadius: 10, border: `1.5px solid ${T.border}`, padding: "12px 12px", display: "flex", flexDirection: "column", gap: 8, minHeight: 200 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: T.textStrong, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--m)" }}>{col.label}</div>
+                  <span style={{ fontSize: 11, color: T.muted, fontFamily: "var(--m)" }}>{items.length}</span>
+                </div>
+                {items.map(t => {
+                  const brand = MOCK_BRANDS.find(b => b.id === t.brandId);
+                  const user = TEAM.find(u => u.id === t.assignee);
+                  return (
+                    <div key={t.id} style={{ padding: "10px 11px", borderRadius: 8, background: T.panel, border: `1.5px solid ${T.border}`, display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: T.card, color: T.muted, fontWeight: 700, fontFamily: "var(--m)" }}>{t.type}</span>
+                        <PriorityChip priority={t.priority} T={T} />
+                      </div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: T.text, lineHeight: 1.4 }}>{t.title}</div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {brand && <div style={{ width: 18, height: 18, borderRadius: 4, background: brand.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 8 }}>{brand.initials}</div>}
+                          <span style={{ fontSize: 10.5, color: T.muted, fontFamily: "var(--m)" }}>{brand?.name}</span>
+                        </div>
+                        <Avatar user={user} size={20} T={T} />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4, paddingTop: 6, borderTop: `1px solid ${T.borderFaint}` }}>
+                        <span style={{ fontSize: 10.5, color: T.muted, fontFamily: "var(--m)" }}>due {t.due}</span>
+                        <select value={t.status} onChange={e => moveTask(t.id, e.target.value)} style={{ background: "transparent", border: "none", color: T.muted, fontSize: 10.5, cursor: "pointer", fontFamily: "var(--h)" }}>
+                          {TASK_STATUSES.map(s => <option key={s.id} value={s.id} style={{ background: T.elev, color: T.text }}>→ {s.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+                {items.length === 0 && <div style={{ padding: "20px 0", textAlign: "center", fontSize: 11.5, color: T.muted }}>—</div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {showNew && <NewTaskModal T={T} onClose={() => setShowNew(false)} onCreate={addTask} currentUser={currentUser} />}
+    </div>
+  );
+}
+
+function NewTaskModal({ T, onClose, onCreate, currentUser }) {
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState("Static Ads");
+  const [priority, setPriority] = useState("Medium");
+  const [assignee, setAssignee] = useState(currentUser.id);
+  const [brandId, setBrandId] = useState(MOCK_BRANDS[0]?.id || "");
+  const [due, setDue] = useState("+3d");
+
+  const create = () => {
+    if (!title.trim()) return alert("Title required");
+    onCreate({ title: title.trim(), type, priority, assignee, brandId, due });
+  };
+
+  const Field = ({ label, children }) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+      <label style={{ fontSize: 11.5, fontWeight: 700, color: T.label, letterSpacing: "0.01em" }}>{label}</label>
+      {children}
+    </div>
+  );
+  const inputStyle = { padding: "8px 10px", borderRadius: 7, border: `1.5px solid ${T.border}`, background: T.inputBg, color: T.textStrong, fontSize: 13, fontWeight: 600, outline: "none", fontFamily: "var(--h)" };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 250, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: 480, maxWidth: "100%", background: T.bg, borderRadius: 12, border: `1.5px solid ${T.border}`, padding: "22px 24px", boxShadow: "0 16px 60px rgba(0,0,0,0.5)" }}>
+        <h3 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 800, color: T.textStrong }}>New task</h3>
+        <Field label="Title">
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Static ad set for spring drop" style={inputStyle} autoFocus />
+        </Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
+          <Field label="Type"><select value={type} onChange={e => setType(e.target.value)} style={inputStyle}>{TASK_TYPES.map(t => <option key={t} style={{ background: T.elev }}>{t}</option>)}</select></Field>
+          <Field label="Priority"><select value={priority} onChange={e => setPriority(e.target.value)} style={inputStyle}>{TASK_PRIORITIES.map(p => <option key={p} style={{ background: T.elev }}>{p}</option>)}</select></Field>
+          <Field label="Client"><select value={brandId} onChange={e => setBrandId(e.target.value)} style={inputStyle}>{MOCK_BRANDS.map(b => <option key={b.id} value={b.id} style={{ background: T.elev }}>{b.name}</option>)}</select></Field>
+          <Field label="Assignee"><select value={assignee} onChange={e => setAssignee(e.target.value)} style={inputStyle}>{TEAM.map(u => <option key={u.id} value={u.id} style={{ background: T.elev }}>{u.name}</option>)}</select></Field>
+          <Field label="Due"><input value={due} onChange={e => setDue(e.target.value)} placeholder="+3d, today, tomorrow…" style={inputStyle} /></Field>
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 18 }}>
+          <button onClick={onClose} style={{ padding: "8px 14px", borderRadius: 7, border: `1.5px solid ${T.border}`, background: T.card, color: T.text, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--h)" }}>Cancel</button>
+          <button onClick={create} style={{ padding: "8px 18px", borderRadius: 7, border: `1.5px solid ${T.green}`, background: T.green, color: "#0c0e16", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "var(--h)" }}>Create task</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── APPROVALS ─────────────────────────────────────────────────────────── */
+function ApprovalsView({ T, currentUser }) {
+  const [items, setItems] = useState(MOCK_APPROVALS);
+  const [feedback, setFeedback] = useState({});
+
+  const approve = (id) => {
+    setItems(prev => prev.filter(i => i.id !== id));
+    alert("✓ Approved. In production this notifies the assignee on Slack.");
+  };
+  const reject = (id) => {
+    if (!feedback[id]?.trim()) return alert("Add feedback first.");
+    setItems(prev => prev.filter(i => i.id !== id));
+    setFeedback(prev => ({ ...prev, [id]: "" }));
+    alert("Sent back with feedback. In production this re-opens the task and notifies on Slack.");
+  };
+
+  return (
+    <div>
+      <PageHeader T={T} icon="👁" title="Approvals" subtitle="Review work submitted by the team. Approve to ship, or send back with feedback." />
+
+      <div style={{ padding: "16px 28px" }}>
+        {items.length === 0 ? (
+          <div style={{ padding: "60px 20px", textAlign: "center", borderRadius: 10, border: `1.5px dashed ${T.border}`, background: T.card }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>🎉</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.textStrong, marginBottom: 4 }}>Inbox zero</div>
+            <div style={{ fontSize: 13, color: T.muted }}>Nothing pending approval right now.</div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 14 }}>
+            {items.map(it => {
+              const brand = MOCK_BRANDS.find(b => b.id === it.brandId);
+              const submittedBy = TEAM.find(u => u.id === it.submittedBy);
+              return (
+                <div key={it.id} style={{ borderRadius: 11, border: `1.5px solid ${T.border}`, background: T.panel, overflow: "hidden" }}>
+                  {/* Preview area */}
+                  <div style={{ height: 140, background: brand?.color + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 60 }}>
+                    {it.thumbnail || "📦"}
+                  </div>
+                  <div style={{ padding: "14px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                      <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 3, background: T.card, color: T.muted, fontWeight: 700, fontFamily: "var(--m)" }}>{it.type}</span>
+                      {brand && <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        <div style={{ width: 14, height: 14, borderRadius: 3, background: brand.color, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 7 }}>{brand.initials}</div>
+                        <span style={{ fontSize: 11, color: T.muted, fontFamily: "var(--m)" }}>{brand.name}</span>
+                      </div>}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.textStrong, marginBottom: 8, lineHeight: 1.4 }}>{it.title}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+                      <Avatar user={submittedBy} size={22} T={T} />
+                      <span style={{ fontSize: 11.5, color: T.muted }}>{submittedBy?.name} submitted {it.submitted}</span>
+                    </div>
+                    <textarea value={feedback[it.id] || ""} onChange={e => setFeedback(p => ({ ...p, [it.id]: e.target.value }))} placeholder="Optional feedback (required to send back)" rows={2}
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: `1.5px solid ${T.border}`, background: T.inputBg, color: T.textStrong, fontSize: 12, fontFamily: "var(--h)", outline: "none", resize: "vertical", marginBottom: 10 }} />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => reject(it.id)} style={{ flex: 1, padding: "8px 10px", borderRadius: 7, border: `1.5px solid ${T.amber}`, background: "rgba(255,190,80,0.15)", color: T.amber, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--h)" }}>↩ Send back</button>
+                      <button onClick={() => approve(it.id)} style={{ flex: 1, padding: "8px 10px", borderRadius: 7, border: `1.5px solid ${T.green}`, background: T.green, color: "#0c0e16", fontSize: 12.5, fontWeight: 800, cursor: "pointer", fontFamily: "var(--h)" }}>✓ Approve</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── SLACK / CALLS standalone (re-uses Watchdog tabs but as full pages) ── */
+function SlackInbox({ T }) {
+  return (
+    <div>
+      <PageHeader T={T} icon="💬" title="Slack Inbox" subtitle="Client messages from connected Slack channels, scored by urgency." />
+      <div style={{ padding: "16px 28px" }}>
+        <Watchdog T={T} brands={[]} />
+      </div>
+    </div>
+  );
+}
+
+/* ── SIGN IN ───────────────────────────────────────────────────────────── */
+function SignIn({ T, theme, onSignIn }) {
+  const [user, setUser] = useState(TEAM[0].id);
+  return (
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: 380, padding: "30px 28px", borderRadius: 14, background: T.panel, border: `1.5px solid ${T.border}`, boxShadow: "0 14px 60px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
+          <img src="/social-enviro-logo.png" alt="SE" onError={e => { e.currentTarget.style.display = "none"; }} style={{ height: 36, filter: theme === "dark" ? "invert(1) brightness(1.1)" : "none" }} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: T.textStrong }}>Social Enviro</div>
+            <div style={{ fontSize: 11.5, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.04em" }}>COMMAND OS</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 13.5, color: T.text, lineHeight: 1.5, marginBottom: 20 }}>
+          Sign in to your team account.
+          <div style={{ fontSize: 11.5, color: T.muted, marginTop: 6 }}>
+            <b style={{ color: T.amber }}>DEMO MODE:</b> pick a team member to impersonate. Production uses Google SSO.
+          </div>
+        </div>
+        <label style={{ fontSize: 11.5, fontWeight: 700, color: T.label, display: "block", marginBottom: 5 }}>Sign in as</label>
+        <select value={user} onChange={e => setUser(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1.5px solid ${T.border}`, background: T.inputBg, color: T.textStrong, fontSize: 14, fontWeight: 700, cursor: "pointer", outline: "none", fontFamily: "var(--h)", marginBottom: 16 }}>
+          {TEAM.map(u => <option key={u.id} value={u.id} style={{ background: T.elev }}>{u.name} — {u.role}</option>)}
+        </select>
+        <button onClick={() => onSignIn(TEAM.find(u => u.id === user))} style={{ width: "100%", padding: "11px 14px", borderRadius: 8, border: `1.5px solid ${T.green}`, background: T.green, color: "#0c0e16", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "var(--h)" }}>Sign in →</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── ROOT APP (router shell) ───────────────────────────────────────────── */
+const LS_USER = "se.user";
+const LS_VIEW = "se.view";
+
+export default function App() {
+  // Theme
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem(LS_THEME) || "dark"; } catch { return "dark"; } });
+  const T = THEMES[theme];
+  const isDark = theme === "dark";
+  useEffect(() => { try { localStorage.setItem(LS_THEME, theme); } catch {} }, [theme]);
+
+  // User (mock auth)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try { const id = localStorage.getItem(LS_USER); if (id) return TEAM.find(u => u.id === id) || null; } catch {}
+    return null;
+  });
+  const signIn = (u) => { setCurrentUser(u); try { localStorage.setItem(LS_USER, u.id); } catch {} };
+  const signOut = () => { setCurrentUser(null); try { localStorage.removeItem(LS_USER); } catch {} };
+
+  // Brands (existing storage)
+  const [brands, setBrands] = useState(() => {
+    try { const raw = localStorage.getItem(LS_KEY); if (raw) return JSON.parse(raw); } catch {}
+    return DEFAULT_BRANDS;
+  });
+  const [activeIdx, setActiveIdx] = useState(() => { try { const v = parseInt(localStorage.getItem(LS_ACTIVE) || "0", 10); return isNaN(v) ? 0 : v; } catch { return 0; } });
+  useEffect(() => { try { localStorage.setItem(LS_KEY, JSON.stringify(brands)); } catch {} }, [brands]);
+  useEffect(() => { try { localStorage.setItem(LS_ACTIVE, String(activeIdx)); } catch {} }, [activeIdx]);
+
+  const addBrand = () => {
+    const name = prompt("Brand name?", `Brand ${brands.length + 1}`);
+    if (!name) return;
+    setBrands(prev => [...prev, newBrand(name)]);
+    setActiveIdx(brands.length);
+  };
+
+  // View routing
+  const [view, setView] = useState(() => { try { return localStorage.getItem(LS_VIEW) || "watchdog"; } catch { return "watchdog"; } });
+  useEffect(() => { try { localStorage.setItem(LS_VIEW, view); } catch {} }, [view]);
+
+  // Show sign-in if not authed
+  if (!currentUser) return <SignIn T={T} theme={theme} onSignIn={signIn} />;
+
+  const renderView = () => {
+    switch (view) {
+      case "watchdog":  return <Watchdog T={T} theme={theme} brands={brands} />;
+      case "mission":   return <MissionControl T={T} currentUser={currentUser} setView={setView} />;
+      case "tasks":     return <TasksView T={T} currentUser={currentUser} brands={brands} />;
+      case "approvals": return <ApprovalsView T={T} currentUser={currentUser} />;
+      case "matrix":    return <ProfitMatrixView T={T} theme={theme} isDark={isDark} brands={brands} setBrands={setBrands} activeIdx={activeIdx} />;
+      case "slack":     return <Watchdog T={T} theme={theme} brands={brands} />; // Watchdog has Slack tab; deep-link later
+      case "calls":     return <Watchdog T={T} theme={theme} brands={brands} />;
+      default:          return <Watchdog T={T} theme={theme} brands={brands} />;
+    }
+  };
+
+  return (
+    <div style={{ "--m": "'JetBrains Mono', monospace", "--h": "'Space Grotesk', system-ui, sans-serif", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}body{margin:0}`}</style>
+      <Sidebar T={T} theme={theme} setTheme={setTheme} isDark={isDark} view={view} setView={setView} brands={brands} activeIdx={activeIdx} setActiveIdx={setActiveIdx} addBrand={addBrand} currentUser={currentUser} signOut={signOut} />
+      <div style={{ flex: 1, minWidth: 0, height: "100vh", overflowY: "auto" }}>
+        {renderView()}
       </div>
     </div>
   );
