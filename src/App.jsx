@@ -1,4 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { AuthGate, TeamManagement } from "./Auth.jsx";
+import { hasAccess } from "./supabase.js";
 
 /* ── DEFAULTS ── */
 const DEFAULTS = {
@@ -1487,6 +1489,9 @@ const NAV_ITEMS = [
     { id: "slack",  label: "Slack Inbox",     icon: "💬" },
     { id: "calls",  label: "Call Notes",      icon: "📞" },
   ]},
+  { section: "ADMIN", items: [
+    { id: "team",  label: "Team Management", icon: "👥", adminOnly: true },
+  ]},
 ];
 
 function Sidebar({ T, theme, setTheme, isDark, view, setView, brands, activeIdx, setActiveIdx, addBrand, currentUser, signOut }) {
@@ -1520,6 +1525,7 @@ function Sidebar({ T, theme, setTheme, isDark, view, setView, brands, activeIdx,
           <div key={group.section} style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 9.5, fontWeight: 700, color: T.muted, letterSpacing: "0.1em", padding: "4px 10px", marginBottom: 3, fontFamily: "var(--m)" }}>{group.section}</div>
             {group.items.map(it => {
+              if (it.adminOnly && !hasAccess(currentUser?.role, "admin")) return null;
               const active = view === it.id;
               return (
                 <button key={it.id} onClick={() => !it.soon && setView(it.id)} disabled={it.soon}
@@ -2210,13 +2216,6 @@ function Platform() {
   const isDark = theme === "dark";
   useEffect(() => { try { localStorage.setItem(LS_THEME, theme); } catch {} }, [theme]);
 
-  const [currentUser, setCurrentUser] = useState(() => {
-    try { const id = localStorage.getItem(LS_USER); if (id) return TEAM.find(u => u.id === id) || null; } catch {}
-    return null;
-  });
-  const signIn = (u) => { setCurrentUser(u); try { localStorage.setItem(LS_USER, u.id); } catch {} };
-  const signOut = () => { setCurrentUser(null); try { localStorage.removeItem(LS_USER); } catch {} };
-
   const [brands, setBrands] = useState(() => {
     try { const raw = localStorage.getItem(LS_KEY); if (raw) return JSON.parse(raw); } catch {}
     return DEFAULT_BRANDS;
@@ -2235,28 +2234,33 @@ function Platform() {
   const [view, setView] = useState(() => { try { return localStorage.getItem(LS_VIEW) || "watchdog"; } catch { return "watchdog"; } });
   useEffect(() => { try { localStorage.setItem(LS_VIEW, view); } catch {} }, [view]);
 
-  if (!currentUser) return <SignIn T={T} theme={theme} onSignIn={signIn} />;
-
-  const renderView = () => {
-    switch (view) {
-      case "watchdog":  return <Watchdog T={T} theme={theme} brands={brands} />;
-      case "mission":   return <MissionControl T={T} currentUser={currentUser} setView={setView} />;
-      case "tasks":     return <TasksView T={T} currentUser={currentUser} brands={brands} />;
-      case "approvals": return <ApprovalsView T={T} currentUser={currentUser} />;
-      case "matrix":    return <ProfitMatrixView T={T} theme={theme} isDark={isDark} brands={brands} setBrands={setBrands} activeIdx={activeIdx} />;
-      case "slack":     return <Watchdog T={T} theme={theme} brands={brands} />;
-      case "calls":     return <Watchdog T={T} theme={theme} brands={brands} />;
-      default:          return <Watchdog T={T} theme={theme} brands={brands} />;
-    }
-  };
-
   return (
-    <div style={{ "--m": "'JetBrains Mono', monospace", "--h": "'Space Grotesk', system-ui, sans-serif", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}body{margin:0}`}</style>
-      <Sidebar T={T} theme={theme} setTheme={setTheme} isDark={isDark} view={view} setView={setView} brands={brands} activeIdx={activeIdx} setActiveIdx={setActiveIdx} addBrand={addBrand} currentUser={currentUser} signOut={signOut} />
-      <div style={{ flex: 1, minWidth: 0, height: "100vh", overflowY: "auto" }}>
-        {renderView()}
-      </div>
-    </div>
+    <AuthGate T={T} theme={theme}>
+      {({ user: currentUser, signOut }) => {
+        const renderView = () => {
+          switch (view) {
+            case "watchdog":  return <Watchdog T={T} theme={theme} brands={brands} />;
+            case "mission":   return <MissionControl T={T} currentUser={currentUser} setView={setView} />;
+            case "tasks":     return <TasksView T={T} currentUser={currentUser} brands={brands} />;
+            case "approvals": return <ApprovalsView T={T} currentUser={currentUser} />;
+            case "matrix":    return <ProfitMatrixView T={T} theme={theme} isDark={isDark} brands={brands} setBrands={setBrands} activeIdx={activeIdx} />;
+            case "team":      return <TeamManagement T={T} currentUser={currentUser} />;
+            case "slack":     return <Watchdog T={T} theme={theme} brands={brands} />;
+            case "calls":     return <Watchdog T={T} theme={theme} brands={brands} />;
+            default:          return <Watchdog T={T} theme={theme} brands={brands} />;
+          }
+        };
+
+        return (
+          <div style={{ "--m": "'JetBrains Mono', monospace", "--h": "'Space Grotesk', system-ui, sans-serif", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex" }}>
+            <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}body{margin:0}`}</style>
+            <Sidebar T={T} theme={theme} setTheme={setTheme} isDark={isDark} view={view} setView={setView} brands={brands} activeIdx={activeIdx} setActiveIdx={setActiveIdx} addBrand={addBrand} currentUser={currentUser} signOut={signOut} />
+            <div style={{ flex: 1, minWidth: 0, height: "100vh", overflowY: "auto" }}>
+              {renderView()}
+            </div>
+          </div>
+        );
+      }}
+    </AuthGate>
   );
 }
