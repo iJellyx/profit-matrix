@@ -2108,14 +2108,108 @@ function SignIn({ T, theme, onSignIn }) {
 const LS_USER = "se.user";
 const LS_VIEW = "se.view";
 
-export default function App() {
-  // Theme
+/* ── STANDALONE PUBLIC PROFIT MATRIX ────────────────────────────────────
+   Rendered when the URL contains #/profit-matrix
+   No sign-in, no sidebar. Just the tool + Social Enviro branding + CTA.
+   Share this link publicly: yoursite.com/#/profit-matrix
+   ──────────────────────────────────────────────────────────────────────── */
+function StandaloneMatrix() {
   const [theme, setTheme] = useState(() => { try { return localStorage.getItem(LS_THEME) || "dark"; } catch { return "dark"; } });
   const T = THEMES[theme];
   const isDark = theme === "dark";
   useEffect(() => { try { localStorage.setItem(LS_THEME, theme); } catch {} }, [theme]);
 
-  // User (mock auth)
+  const [brands, setBrands] = useState(() => {
+    try { const raw = localStorage.getItem(LS_KEY); if (raw) return JSON.parse(raw); } catch {}
+    return DEFAULT_BRANDS;
+  });
+  const [activeIdx, setActiveIdx] = useState(() => { try { const v = parseInt(localStorage.getItem(LS_ACTIVE) || "0", 10); return isNaN(v) ? 0 : v; } catch { return 0; } });
+  useEffect(() => { try { localStorage.setItem(LS_KEY, JSON.stringify(brands)); } catch {} }, [brands]);
+  useEffect(() => { try { localStorage.setItem(LS_ACTIVE, String(activeIdx)); } catch {} }, [activeIdx]);
+
+  const addBrand = () => {
+    const name = prompt("Brand name?", `Brand ${brands.length + 1}`);
+    if (!name) return;
+    setBrands(prev => [...prev, newBrand(name)]);
+    setActiveIdx(brands.length);
+  };
+  const renameBrand = () => {
+    const name = prompt("Rename brand:", brands[activeIdx]?.name);
+    if (!name) return;
+    setBrands(prev => prev.map((b, i) => i === activeIdx ? { ...b, name } : b));
+  };
+  const deleteBrand = () => {
+    if (brands.length === 1) return alert("At least one brand is required.");
+    if (!confirm(`Delete "${brands[activeIdx]?.name}"?`)) return;
+    setBrands(prev => prev.filter((_, i) => i !== activeIdx));
+    setActiveIdx(0);
+  };
+
+  return (
+    <div style={{ "--m": "'JetBrains Mono', monospace", "--h": "'Space Grotesk', system-ui, sans-serif", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}body{margin:0}`}</style>
+
+      {/* Public header */}
+      <div style={{ padding: "14px 24px", borderBottom: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+          <img src="/social-enviro-logo.png" alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }}
+            style={{ height: 32, width: "auto", filter: isDark ? "invert(1) brightness(1.1)" : "none" }} />
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.02em", color: T.textStrong }}>Profit Matrix</div>
+            <div style={{ fontSize: 11, color: T.muted }}>by Social Enviro</div>
+          </div>
+        </a>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Brand switcher */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 6px 5px 10px", background: T.card, border: `1.5px solid ${T.border}`, borderRadius: 8 }}>
+          <span style={{ fontSize: 10, color: T.muted, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: "var(--m)", fontWeight: 700 }}>Brand</span>
+          <select value={activeIdx} onChange={e => setActiveIdx(parseInt(e.target.value, 10))} style={{ background: "transparent", color: T.textStrong, border: "none", outline: "none", fontSize: 13, fontWeight: 700, padding: "4px 6px", cursor: "pointer", fontFamily: "var(--h)" }}>
+            {brands.map((b, i) => <option key={i} value={i} style={{ background: T.elev, color: T.textStrong }}>{b.name}</option>)}
+          </select>
+          <button onClick={renameBrand} title="Rename" style={{ background: "transparent", border: "none", color: T.muted, fontSize: 13, cursor: "pointer", padding: 4 }}>✎</button>
+          <button onClick={addBrand} title="Add" style={{ background: "transparent", border: "none", color: T.green, fontSize: 15, cursor: "pointer", padding: 4, fontWeight: 700 }}>+</button>
+          {brands.length > 1 && <button onClick={deleteBrand} title="Delete" style={{ background: "transparent", border: "none", color: T.red, fontSize: 13, cursor: "pointer", padding: 4 }}>✕</button>}
+        </div>
+
+        <button onClick={() => setTheme(isDark ? "light" : "dark")} title="Toggle theme"
+          style={{ padding: "7px 11px", borderRadius: 7, border: `1.5px solid ${T.border}`, background: T.card, color: T.textStrong, cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "var(--h)" }}>
+          {isDark ? "☀ Light" : "☾ Dark"}
+        </button>
+      </div>
+
+      <ProfitMatrixView T={T} theme={theme} isDark={isDark} brands={brands} setBrands={setBrands} activeIdx={activeIdx} />
+    </div>
+  );
+}
+
+/* ── ROOT APP (hash router) ────────────────────────────────────────────── */
+export default function App() {
+  // Hash-based routing: #/profit-matrix renders standalone public tool
+  const [hash, setHash] = useState(() => window.location.hash);
+  useEffect(() => {
+    const onHash = () => setHash(window.location.hash);
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const isPublicMatrix = hash === "#/profit-matrix" || hash === "#/profit-matrix/";
+
+  // If public route, render standalone (no auth, no sidebar)
+  if (isPublicMatrix) return <StandaloneMatrix />;
+
+  // Otherwise render full platform
+  return <Platform />;
+}
+
+/* ── PLATFORM (full agency app with auth + sidebar) ────────────────────── */
+function Platform() {
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem(LS_THEME) || "dark"; } catch { return "dark"; } });
+  const T = THEMES[theme];
+  const isDark = theme === "dark";
+  useEffect(() => { try { localStorage.setItem(LS_THEME, theme); } catch {} }, [theme]);
+
   const [currentUser, setCurrentUser] = useState(() => {
     try { const id = localStorage.getItem(LS_USER); if (id) return TEAM.find(u => u.id === id) || null; } catch {}
     return null;
@@ -2123,7 +2217,6 @@ export default function App() {
   const signIn = (u) => { setCurrentUser(u); try { localStorage.setItem(LS_USER, u.id); } catch {} };
   const signOut = () => { setCurrentUser(null); try { localStorage.removeItem(LS_USER); } catch {} };
 
-  // Brands (existing storage)
   const [brands, setBrands] = useState(() => {
     try { const raw = localStorage.getItem(LS_KEY); if (raw) return JSON.parse(raw); } catch {}
     return DEFAULT_BRANDS;
@@ -2139,11 +2232,9 @@ export default function App() {
     setActiveIdx(brands.length);
   };
 
-  // View routing
   const [view, setView] = useState(() => { try { return localStorage.getItem(LS_VIEW) || "watchdog"; } catch { return "watchdog"; } });
   useEffect(() => { try { localStorage.setItem(LS_VIEW, view); } catch {} }, [view]);
 
-  // Show sign-in if not authed
   if (!currentUser) return <SignIn T={T} theme={theme} onSignIn={signIn} />;
 
   const renderView = () => {
@@ -2153,7 +2244,7 @@ export default function App() {
       case "tasks":     return <TasksView T={T} currentUser={currentUser} brands={brands} />;
       case "approvals": return <ApprovalsView T={T} currentUser={currentUser} />;
       case "matrix":    return <ProfitMatrixView T={T} theme={theme} isDark={isDark} brands={brands} setBrands={setBrands} activeIdx={activeIdx} />;
-      case "slack":     return <Watchdog T={T} theme={theme} brands={brands} />; // Watchdog has Slack tab; deep-link later
+      case "slack":     return <Watchdog T={T} theme={theme} brands={brands} />;
       case "calls":     return <Watchdog T={T} theme={theme} brands={brands} />;
       default:          return <Watchdog T={T} theme={theme} brands={brands} />;
     }
