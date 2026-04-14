@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase, getProfile, ROLES, hasAccess, listPendingUsers, listAllUsers, approveUser, rejectUser, updateUserRole } from "./supabase.js";
+import { supabase, getProfile, upsertProfile, ROLES, hasAccess, listPendingUsers, listAllUsers, approveUser, rejectUser, updateUserRole } from "./supabase.js";
 
 /* ── SIGN IN / SIGN UP ─────────────────────────────────────────────────── */
 export function AuthGate({ T, theme, children }) {
@@ -26,7 +26,14 @@ export function AuthGate({ T, theme, children }) {
 
   const loadProfile = async (uid) => {
     setLoading(true);
-    const p = await getProfile(uid);
+    let p = await getProfile(uid);
+    // If profile doesn't exist (trigger may not have fired), create it
+    if (!p && session?.user) {
+      console.warn("Profile not found — creating via upsert...");
+      p = await upsertProfile(uid, session.user.email, session.user.user_metadata?.name || session.user.email.split("@")[0]);
+      // Re-fetch to get the version filtered through RLS
+      if (!p) p = await getProfile(uid);
+    }
     setProfile(p);
     setLoading(false);
   };
@@ -39,7 +46,7 @@ export function AuthGate({ T, theme, children }) {
 
   if (loading || session === undefined) return <LoadingScreen T={T} />;
   if (!session) return <AuthScreen T={T} theme={theme} />;
-  if (!profile || profile.status === "pending") return <PendingScreen T={T} theme={theme} email={session.user.email} signOut={signOut} />;
+  if (!profile || profile.status === "pending") return <PendingScreen T={T} theme={theme} email={session.user.email} signOut={signOut} onRefresh={() => loadProfile(session.user.id)} />;
   if (profile.status === "rejected") return <RejectedScreen T={T} theme={theme} email={session.user.email} signOut={signOut} />;
 
   // Approved — render the app with user context
@@ -169,8 +176,13 @@ function AuthScreen({ T, theme }) {
   );
 }
 
-function PendingScreen({ T, theme, email, signOut }) {
-  const isDark = theme === "dark";
+function PendingScreen({ T, theme, email, signOut, onRefresh }) {
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    if (onRefresh) await onRefresh();
+    setRefreshing(false);
+  };
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: 420, maxWidth: "100%", padding: "30px 28px", borderRadius: 14, background: T.panel, border: `1.5px solid ${T.border}`, textAlign: "center" }}>
@@ -180,10 +192,10 @@ function PendingScreen({ T, theme, email, signOut }) {
           Your account (<b>{email}</b>) has been created. An administrator needs to approve it before you can access the platform.
         </p>
         <p style={{ margin: "0 0 20px", fontSize: 12.5, color: T.muted, lineHeight: 1.5 }}>
-          You'll get access as soon as they approve. Refresh this page to check.
+          You'll get access as soon as they approve. Click refresh to check.
         </p>
         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-          <button onClick={() => window.location.reload()} style={{ padding: "9px 16px", borderRadius: 7, border: `1.5px solid ${T.green}`, background: "rgba(120,220,160,0.14)", color: T.green, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--h)" }}>Refresh</button>
+          <button onClick={handleRefresh} disabled={refreshing} style={{ padding: "9px 16px", borderRadius: 7, border: `1.5px solid ${T.green}`, background: "rgba(120,220,160,0.14)", color: T.green, fontSize: 13, fontWeight: 700, cursor: refreshing ? "wait" : "pointer", fontFamily: "var(--h)" }}>{refreshing ? "Checking..." : "Refresh Status"}</button>
           <button onClick={signOut} style={{ padding: "9px 16px", borderRadius: 7, border: `1.5px solid ${T.border}`, background: T.card, color: T.text, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--h)" }}>Sign out</button>
         </div>
       </div>

@@ -28,11 +28,12 @@ export function hasAccess(userRole, requiredRole) {
 /* ── PROFILE HELPERS ───────────────────────────────────────────────────── */
 export async function getProfile(userId) {
   if (!supabase) return null;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", userId)
     .single();
+  if (error) console.error("getProfile error:", error.message, error);
   return data;
 }
 
