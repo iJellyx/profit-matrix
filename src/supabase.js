@@ -28,12 +28,16 @@ export function hasAccess(userRole, requiredRole) {
 /* ── PROFILE HELPERS ───────────────────────────────────────────────────── */
 export async function getProfile(userId) {
   if (!supabase) return null;
+  // Debug: check that we have an active session with a valid JWT
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log("getProfile — session uid:", session?.user?.id, "requested uid:", userId, "has token:", !!session?.access_token);
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", userId)
     .single();
-  if (error) console.error("getProfile error:", error.message, error);
+  if (error) console.error("getProfile error:", error.message, error.code, error.details);
+  console.log("getProfile — result:", data);
   return data;
 }
 
