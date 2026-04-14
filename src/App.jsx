@@ -1308,7 +1308,6 @@ function ProfitMatrixView({ T, theme, isDark, brands, setBrands, activeIdx }) {
           </div>
         </div>
       </div>
-    </div>
   );
 }
 
