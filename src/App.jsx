@@ -1267,7 +1267,7 @@ function ProfitMatrixView({ T, theme, isDark, brands, setBrands, activeIdx }) {
             <div>
               <div style={{ fontSize: 10.5, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6, fontFamily: "var(--m)" }}>★ Model peak & breakevens</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 6 }}>
-                <MetPill T={T} label="Peak Net" tip={TIPS.netProfit} value={fmtFull(pN)} sub={pkCell ? `${fmt(pkCell.spend)} @ ${fmtX(pkCell.roas)}` : ""} color={pN > 0 ? T.green : T.red} />
+                <MetPill T={T} label="Peak Net" tip={TIPS.netProfit} value={fmtFull(pkCell?.netProfit)} sub={pkCell ? `${fmt(pkCell.spend)} @ ${fmtX(pkCell.roas)}` : ""} color={(pkCell?.netProfit ?? 0) > 0 ? T.green : T.red} />
                 <MetPill T={T} label="BE NC-CPA 1st" tip={TIPS.beCpa1} value={fmt(eng.beCpa1)} color={T.amber} />
                 <MetPill T={T} label="BE NC-CPA LTV" tip={TIPS.beCpaLtv} value={fmt(eng.beCpaLtv)} color={T.green} />
                 <MetPill T={T} label="Peak MER" tip={TIPS.mer} value={pkCell ? fmtX(pkCell.mer) : "—"} color={T.blue} />
