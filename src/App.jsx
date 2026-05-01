@@ -1,6 +1,34 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Component, memo } from "react";
 import { AuthGate, TeamManagement } from "./Auth.jsx";
 import { hasAccess } from "./supabase.js";
+
+/* ── ERROR BOUNDARY ── */
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error("Caught by boundary:", error, info); }
+  reset = () => this.setState({ error: null });
+  render() {
+    if (this.state.error) {
+      const T = this.props.T || { bg: "#0c0e16", panel: "#1a1d2e", text: "#e8eaf2", textStrong: "#fff", muted: "#8a8fa8", border: "rgba(255,255,255,0.12)", red: "#ff9999", green: "#78dca0" };
+      return (
+        <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ maxWidth: 460, padding: "26px 28px", borderRadius: 12, background: T.panel, border: `1.5px solid ${T.border}`, textAlign: "center" }}>
+            <div style={{ fontSize: 38, marginBottom: 8 }}>⚠️</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: 17, color: T.textStrong }}>Something went wrong</h3>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: T.muted, lineHeight: 1.5 }}>
+              {this.state.error.message || "An unexpected error occurred while rendering this view."}
+            </p>
+            <button onClick={this.reset} style={{ padding: "8px 16px", borderRadius: 7, border: `1.5px solid ${T.green}`, background: T.green, color: "#0c0e16", fontWeight: 700, cursor: "pointer" }}>
+              Try again
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 /* ── DEFAULTS ── */
 const DEFAULTS = {
@@ -37,15 +65,16 @@ const LS_ACTIVE = "profitMatrix.activeBrand";
 const LS_THEME = "profitMatrix.theme";
 
 /* ── FORMATTERS ── */
+const isNum = (n) => n != null && !isNaN(n) && isFinite(n);
 const fmt = (n) => {
-  if (n == null || isNaN(n) || !isFinite(n)) return "—";
+  if (!isNum(n)) return "—";
   if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
   if (Math.abs(n) >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
   return `$${Math.round(n)}`;
 };
-const fmtFull = (n) => (!isFinite(n)) ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const fmtX = (n) => (!isFinite(n) || isNaN(n)) ? "—" : `${n.toFixed(2)}x`;
-const fmtInt = (n) => (!isFinite(n) || isNaN(n)) ? "—" : Math.round(n).toLocaleString();
+const fmtFull = (n) => isNum(n) ? n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "—";
+const fmtX = (n) => isNum(n) ? `${n.toFixed(2)}x` : "—";
+const fmtInt = (n) => isNum(n) ? Math.round(n).toLocaleString() : "—";
 
 /* ── THEMES ── */
 const THEMES = {
@@ -109,15 +138,16 @@ function hc(value, min, max, theme) {
 }
 
 /* ── MODE DERIVATION ── */
+const SIMPLIFIED_GRID_STEPS = 8; // 9-point grid (0..steps inclusive) in simplified mode
 function deriveEffective(I) {
   let out = { ...I };
   if (I.mode === "simplified") {
     const gm = Math.max(0, 100 - I.avgVarCostPct);
     const spendMin = I.spendMin;
-    const steps = 8;
+    const steps = SIMPLIFIED_GRID_STEPS;
     const spendMax = spendMin + steps * I.spendStep;
     const roasMin = I.roasMin;
-    const roasMax = roasMin + 8 * I.roasStep;
+    const roasMax = roasMin + steps * I.roasStep;
     out = {
       ...out,
       newAov: I.simpleAov,
@@ -314,7 +344,7 @@ function Sec({ label, open, onToggle, children, badge, sub, accent, T }) {
   const arrow = accent === "you" ? T.amber : T.green;
   return (
     <div style={{ marginBottom: 8, background: bg, borderRadius: 9, border: `1.5px solid ${border}`, overflow: "hidden" }}>
-      <button onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", cursor: "pointer", padding: "11px 13px", width: "100%", textAlign: "left" }}>
+      <button onClick={onToggle} aria-expanded={!!open} aria-label={`${open ? "Collapse" : "Expand"} ${label}`} style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", cursor: "pointer", padding: "11px 13px", width: "100%", textAlign: "left", color: "inherit" }}>
         <span style={{ fontSize: 11, color: arrow, transition: "transform .2s", transform: open ? "rotate(90deg)" : "rotate(0)", display: "inline-block", fontWeight: 700 }}>▶</span>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -329,7 +359,7 @@ function Sec({ label, open, onToggle, children, badge, sub, accent, T }) {
   );
 }
 
-function MetPill({ label, tip, value, sub, color, you, T }) {
+const MetPill = memo(function MetPill({ label, tip, value, sub, color, you, T }) {
   return (
     <div style={{ padding: "8px 12px", borderRadius: 7, background: you ? T.youBg : T.card, border: `1px solid ${you ? T.youBorder : T.border}`, minWidth: 0 }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: you ? T.amber : T.muted, letterSpacing: "0.04em", textTransform: "uppercase", fontFamily: "var(--m)", display: "flex", alignItems: "center", whiteSpace: "nowrap" }}>
@@ -339,7 +369,7 @@ function MetPill({ label, tip, value, sub, color, you, T }) {
       {sub && <div style={{ fontSize: 10.5, color: T.muted, marginTop: 1, fontWeight: 500 }}>{sub}</div>}
     </div>
   );
-}
+});
 
 function LD({ color, label, T }) {
   return <div style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 12, height: 12, borderRadius: 3, background: color }} /><span style={{ fontSize: 12, color: T.text, fontWeight: 500 }}>{label}</span></div>;
@@ -347,12 +377,19 @@ function LD({ color, label, T }) {
 
 function Toggle({ on, onChange, label, tip, T }) {
   return (
-    <label style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", userSelect: "none" }}>
-      <span onClick={() => onChange(!on)} style={{ width: 36, height: 20, borderRadius: 12, background: on ? T.green : T.border, position: "relative", transition: "all .15s", flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 9, userSelect: "none" }}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={!!on}
+        aria-label={typeof label === "string" ? label : undefined}
+        onClick={() => onChange(!on)}
+        style={{ width: 36, height: 20, borderRadius: 12, background: on ? T.green : T.border, position: "relative", transition: "all .15s", flexShrink: 0, border: "none", cursor: "pointer", padding: 0 }}
+      >
         <span style={{ position: "absolute", top: 2, left: on ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
-      </span>
-      <span style={{ fontSize: 12.5, color: T.label, fontWeight: 600, display: "flex", alignItems: "center" }}>{label}{tip && <Tip text={tip} T={T} />}</span>
-    </label>
+      </button>
+      <span style={{ fontSize: 12.5, color: T.label, fontWeight: 600, display: "flex", alignItems: "center", cursor: "pointer" }} onClick={() => onChange(!on)}>{label}{tip && <Tip text={tip} T={T} />}</span>
+    </div>
   );
 }
 
@@ -380,7 +417,7 @@ function MP({ options, value, onChange, multi = true, T }) {
 }
 
 /* ── PRIMARY TABLE (ROAS rows × Spend cols) ── */
-function PrimaryTable({ engine, roasVals, spendVals, primaryMetric, overlayMode, beCpa1, beCpaLtv, onSelect, selected, T }) {
+const PrimaryTable = memo(function PrimaryTable({ engine, roasVals, spendVals, primaryMetric, overlayMode, beCpa1, beCpaLtv, onSelect, selected, T }) {
   const { grid, nearestRi, nearestSi } = engine;
   const all = grid.flat().map(c => c[primaryMetric === "contrib" ? "totalContrib" : "netProfit"]);
   const mn = Math.min(...all), mx = Math.max(...all);
@@ -436,7 +473,7 @@ function PrimaryTable({ engine, roasVals, spendVals, primaryMetric, overlayMode,
       </table>
     </div>
   );
-}
+});
 
 /* ── CELL DETAIL PANEL ── */
 function CellDetail({ cell, engine, T }) {
@@ -785,10 +822,13 @@ function Recs({ engine, I, T }) {
     if (tied > 10000) recs.push({ i: "💸", tone: "warn", title: "Working capital needed", t: <>Fronting ~<b>{fmt(cashBurn)}/mo</b> above 1st-order BE. Over {current.paybackMonths.toFixed(1)}mo, ~<b>{fmt(tied)}</b> cash tied up.</> });
   }
 
-  const toneColor = t => t === "good" ? { bg: "rgba(120,220,160,0.06)", border: "rgba(120,220,160,0.28)", ic: T.green }
-    : t === "bad" ? { bg: "rgba(200,60,60,0.07)", border: "rgba(200,60,60,0.32)", ic: T.red }
-    : t === "warn" ? { bg: "rgba(255,190,80,0.06)", border: "rgba(255,190,80,0.28)", ic: T.amber }
-    : { bg: "rgba(120,170,237,0.06)", border: "rgba(120,170,237,0.25)", ic: T.blue };
+  const TONES = {
+    good: { bg: "rgba(120,220,160,0.06)", border: "rgba(120,220,160,0.28)", ic: T.green },
+    bad:  { bg: "rgba(200,60,60,0.07)",   border: "rgba(200,60,60,0.32)",   ic: T.red },
+    warn: { bg: "rgba(255,190,80,0.06)",  border: "rgba(255,190,80,0.28)",  ic: T.amber },
+    info: { bg: "rgba(120,170,237,0.06)", border: "rgba(120,170,237,0.25)", ic: T.blue },
+  };
+  const toneColor = t => TONES[t] || TONES.info;
 
   return (
     <div style={{ marginBottom: 22 }}>
@@ -1088,8 +1128,14 @@ function ProfitMatrixView({ T, theme, isDark, brands, setBrands, activeIdx }) {
   const sV = useMemo(() => { const v = [], st = (effI.spendMax - effI.spendMin) / effI.spendSteps; for (let i = 0; i <= effI.spendSteps; i++) v.push(Math.round(effI.spendMin + i * st)); return v; }, [effI.spendMin, effI.spendMax, effI.spendSteps]);
   const eng = useMemo(() => compute(effI, rV, sV), [effI, rV, sV]);
 
-  let pN = -Infinity, pkCell = null;
-  eng.grid.forEach(row => row.forEach(c => { if (c.netProfit > pN) { pN = c.netProfit; pkCell = c; } }));
+  // Peak-cell scan only depends on eng — was running every render.
+  const pkCell = useMemo(() => {
+    let best = null, bestN = -Infinity;
+    for (const row of eng.grid) for (const c of row) {
+      if (c.netProfit > bestN) { bestN = c.netProfit; best = c; }
+    }
+    return best;
+  }, [eng]);
   const cur = eng.current;
   const simple = I.mode === "simplified";
 
@@ -1274,7 +1320,7 @@ function ProfitMatrixView({ T, theme, isDark, brands, setBrands, activeIdx }) {
                   <LD T={T} color="rgba(60,180,90,0.6)" label="Profit" />
                   <span style={{ fontSize: 11.5, color: T.amber, fontWeight: 700 }}>● YOU</span>
                   <span style={{ fontSize: 11.5, color: T.green, fontWeight: 700 }}>★ PEAK</span>
-                  <span style={{ fontSize: 11.5, color: T.blue, fontWeight: 700, marginLeft: "auto" }}>Click any cell →</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, marginLeft: "auto", padding: "3px 9px", borderRadius: 999, background: "rgba(120,170,237,0.14)", color: T.blue, border: "1px solid rgba(120,170,237,0.32)", letterSpacing: "0.02em" }}>👆 Click any cell for breakdown</span>
                 </div>
               </>
             )}
@@ -2153,7 +2199,7 @@ function StandaloneMatrix() {
 
   return (
     <div style={{ "--m": "'JetBrains Mono', monospace", "--h": "'Space Grotesk', system-ui, sans-serif", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}body{margin:0}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}body{margin:0}:focus-visible{outline:2px solid ${T.blue};outline-offset:2px;border-radius:4px}button:focus:not(:focus-visible),a:focus:not(:focus-visible){outline:none}`}</style>
 
       {/* Public header */}
       <div style={{ padding: "14px 24px", borderBottom: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
@@ -2185,7 +2231,9 @@ function StandaloneMatrix() {
         </button>
       </div>
 
-      <ProfitMatrixView T={T} theme={theme} isDark={isDark} brands={brands} setBrands={setBrands} activeIdx={activeIdx} />
+      <ErrorBoundary T={T}>
+        <ProfitMatrixView T={T} theme={theme} isDark={isDark} brands={brands} setBrands={setBrands} activeIdx={activeIdx} />
+      </ErrorBoundary>
     </div>
   );
 }
@@ -2253,10 +2301,10 @@ function Platform() {
 
         return (
           <div style={{ "--m": "'JetBrains Mono', monospace", "--h": "'Space Grotesk', system-ui, sans-serif", minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex" }}>
-            <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}body{margin:0}`}</style>
+            <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');*{box-sizing:border-box}::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:${T.borderStrong};border-radius:4px}input[type=number]::-webkit-inner-spin-button{opacity:.5}body{margin:0}:focus-visible{outline:2px solid ${T.blue};outline-offset:2px;border-radius:4px}button:focus:not(:focus-visible),a:focus:not(:focus-visible){outline:none}`}</style>
             <Sidebar T={T} theme={theme} setTheme={setTheme} isDark={isDark} view={view} setView={setView} brands={brands} activeIdx={activeIdx} setActiveIdx={setActiveIdx} addBrand={addBrand} currentUser={currentUser} signOut={signOut} />
             <div style={{ flex: 1, minWidth: 0, height: "100vh", overflowY: "auto" }}>
-              {renderView()}
+              <ErrorBoundary T={T} key={view}>{renderView()}</ErrorBoundary>
             </div>
           </div>
         );

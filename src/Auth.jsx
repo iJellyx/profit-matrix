@@ -3,50 +3,62 @@ import { supabase, getProfile, upsertProfile, ROLES, hasAccess, listPendingUsers
 
 /* ── SIGN IN / SIGN UP ─────────────────────────────────────────────────── */
 export function AuthGate({ T, theme, children }) {
+  // Hooks must run unconditionally — handle Supabase-missing case AFTER hooks.
   const [session, setSession] = useState(undefined); // undefined = loading
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // If Supabase isn't configured, fall back to mock auth
-  if (!supabase) return <MockAuthFallback T={T} theme={theme}>{children}</MockAuthFallback>;
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) loadProfile(session.user.id);
-      else setLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) loadProfile(session.user.id);
-      else { setProfile(null); setLoading(false); }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const loadProfile = async (uid) => {
+  // Pass user directly to avoid stale-closure on `session` state.
+  const loadProfile = async (user) => {
+    if (!user) { setProfile(null); setLoading(false); return; }
     setLoading(true);
-    let p = await getProfile(uid);
-    // If profile doesn't exist (trigger may not have fired), create it
-    if (!p && session?.user) {
-      console.warn("Profile not found — creating via upsert...");
-      p = await upsertProfile(uid, session.user.email, session.user.user_metadata?.name || session.user.email.split("@")[0]);
-      // Re-fetch to get the version filtered through RLS
-      if (!p) p = await getProfile(uid);
+    try {
+      let p = await getProfile(user.id);
+      if (!p) {
+        console.warn("Profile not found — creating via upsert...");
+        const name = user.user_metadata?.name || user.email?.split("@")[0] || "";
+        p = await upsertProfile(user.id, user.email, name);
+        if (!p) p = await getProfile(user.id);
+      }
+      setProfile(p);
+    } catch (err) {
+      console.error("loadProfile failed:", err);
+      setProfile(null);
+    } finally {
+      setLoading(false);
     }
-    setProfile(p);
-    setLoading(false);
   };
 
+  useEffect(() => {
+    if (!supabase) { setLoading(false); return; }
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      if (cancelled) return;
+      setSession(s);
+      if (s?.user) loadProfile(s.user);
+      else setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (cancelled) return;
+      setSession(s);
+      if (s?.user) loadProfile(s.user);
+      else { setProfile(null); setLoading(false); }
+    });
+    return () => { cancelled = true; subscription.unsubscribe(); };
+  }, []);
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
   };
 
+  // Supabase not configured → fall back to mock auth (after hooks ran).
+  if (!supabase) return <MockAuthFallback T={T} theme={theme}>{children}</MockAuthFallback>;
+
   if (loading || session === undefined) return <LoadingScreen T={T} />;
   if (!session) return <AuthScreen T={T} theme={theme} />;
-  if (!profile || profile.status === "pending") return <PendingScreen T={T} theme={theme} email={session.user.email} signOut={signOut} onRefresh={() => loadProfile(session.user.id)} />;
+  if (!profile || profile.status === "pending") return <PendingScreen T={T} theme={theme} email={session.user.email} signOut={signOut} onRefresh={() => loadProfile(session.user)} />;
   if (profile.status === "rejected") return <RejectedScreen T={T} theme={theme} email={session.user.email} signOut={signOut} />;
 
   // Approved — render the app with user context
@@ -55,8 +67,10 @@ export function AuthGate({ T, theme, children }) {
 
 function LoadingScreen({ T }) {
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontSize: 14, color: T.muted, fontFamily: "var(--h)" }}>Loading...</div>
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
+      <style>{`@keyframes se-spin{to{transform:rotate(360deg)}}@keyframes se-pulse{0%,100%{opacity:.4}50%{opacity:1}}`}</style>
+      <div aria-hidden="true" style={{ width: 28, height: 28, borderRadius: "50%", border: `2.5px solid ${T.border}`, borderTopColor: T.green, animation: "se-spin .8s linear infinite" }} />
+      <div style={{ fontSize: 12, color: T.muted, fontFamily: "var(--h)", letterSpacing: "0.05em", animation: "se-pulse 1.4s ease-in-out infinite" }}>Loading your workspace…</div>
     </div>
   );
 }
@@ -75,8 +89,23 @@ function AuthScreen({ T, theme }) {
     e.preventDefault();
     setError(null);
     setMessage(null);
-    setSubmitting(true);
 
+    // Client-side validation — avoids unnecessary API calls and gives instant feedback
+    const trimmedEmail = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (mode === "signup" && !name.trim() && !trimmedEmail) {
+      setError("Please enter your name.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
