@@ -66,11 +66,14 @@ export function AuthGate({ T, theme, children }) {
 }
 
 function LoadingScreen({ T }) {
+  // Detect dark theme by bg luminance (T may be either theme)
+  const isDark = T.bg && T.bg.startsWith("#0");
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 }}>
-      <style>{`@keyframes se-spin{to{transform:rotate(360deg)}}@keyframes se-pulse{0%,100%{opacity:.4}50%{opacity:1}}`}</style>
-      <div aria-hidden="true" style={{ width: 28, height: 28, borderRadius: "50%", border: `2.5px solid ${T.border}`, borderTopColor: T.green, animation: "se-spin .8s linear infinite" }} />
-      <div style={{ fontSize: 12, color: T.muted, fontFamily: "var(--h)", letterSpacing: "0.05em", animation: "se-pulse 1.4s ease-in-out infinite" }}>Loading your workspace…</div>
+    <div style={{ minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
+      <style>{`@keyframes se-spin{to{transform:rotate(360deg)}}@keyframes se-pulse{0%,100%{opacity:.5}50%{opacity:1}}`}</style>
+      <img src={isDark ? "/logo-white.png" : "/logo-black.png"} alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }} style={{ height: 44, width: "auto", animation: "se-pulse 1.6s ease-in-out infinite" }} />
+      <div aria-hidden="true" style={{ width: 22, height: 22, borderRadius: "50%", border: `2.5px solid ${T.border}`, borderTopColor: T.textStrong, animation: "se-spin .8s linear infinite" }} />
+      <div style={{ fontSize: 10, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.22em", fontWeight: 700 }}>COMMAND&nbsp;OS</div>
     </div>
   );
 }
@@ -143,14 +146,15 @@ function AuthScreen({ T, theme }) {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: 400, maxWidth: "100%", padding: "30px 28px", borderRadius: 14, background: T.panel, border: `1.5px solid ${T.border}`, boxShadow: "0 14px 60px rgba(0,0,0,0.4)" }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
-          <img src="/social-enviro-logo.png" alt="SE" onError={e => { e.currentTarget.style.display = "none"; }}
-            style={{ height: 36, filter: isDark ? "invert(1) brightness(1.1)" : "none" }} />
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: T.textStrong }}>Social Enviro</div>
-            <div style={{ fontSize: 11.5, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.04em" }}>COMMAND OS</div>
-          </div>
+        {/* Header — logo lockup */}
+        <div style={{ marginBottom: 24, textAlign: "center" }}>
+          <img
+            src={isDark ? "/logo-white.png" : "/logo-black.png"}
+            alt="Social Enviro"
+            onError={e => { e.currentTarget.style.display = "none"; }}
+            style={{ height: 56, width: "auto", display: "inline-block" }}
+          />
+          <div style={{ marginTop: 10, fontSize: 10.5, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.22em", fontWeight: 700 }}>COMMAND&nbsp;OS</div>
         </div>
 
         {/* Mode tabs */}
@@ -269,12 +273,9 @@ function MockAuthFallback({ T, theme, children }) {
     return (
       <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div style={{ width: 380, padding: "30px 28px", borderRadius: 14, background: T.panel, border: `1.5px solid ${T.border}`, boxShadow: "0 14px 60px rgba(0,0,0,0.4)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 16 }}>
-            <img src="/social-enviro-logo.png" alt="SE" onError={e => { e.currentTarget.style.display = "none"; }} style={{ height: 36, filter: theme === "dark" ? "invert(1) brightness(1.1)" : "none" }} />
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: T.textStrong }}>Social Enviro</div>
-              <div style={{ fontSize: 11.5, color: T.muted, fontFamily: "var(--m)" }}>COMMAND OS</div>
-            </div>
+          <div style={{ marginBottom: 18, textAlign: "center" }}>
+            <img src={theme === "dark" ? "/logo-white.png" : "/logo-black.png"} alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }} style={{ height: 48, width: "auto" }} />
+            <div style={{ marginTop: 8, fontSize: 10, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.22em", fontWeight: 700 }}>COMMAND&nbsp;OS</div>
           </div>
           <p style={{ fontSize: 12.5, color: T.muted, margin: "0 0 14px", lineHeight: 1.5 }}>
             <b style={{ color: T.amber }}>DEMO MODE</b> — Supabase not configured. Pick a user to impersonate.

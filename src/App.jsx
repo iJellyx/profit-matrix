@@ -1338,8 +1338,8 @@ function ProfitMatrixView({ T, theme, isDark, brands, setBrands, activeIdx }) {
           <div style={{ marginTop: 28, marginBottom: 8, padding: "24px 26px", borderRadius: 12, background: isDark ? "linear-gradient(135deg, rgba(120,220,160,0.08) 0%, rgba(120,170,237,0.08) 100%)" : "linear-gradient(135deg, rgba(120,220,160,0.14) 0%, rgba(120,170,237,0.14) 100%)", border: `1.5px solid ${T.border}` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <img src="/social-enviro-logo.png" alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }}
-                  style={{ height: 56, width: "auto", filter: isDark ? "invert(1) brightness(1.1)" : "none" }} />
+                <img src={isDark ? "/logo-white.png" : "/logo-black.png"} alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }}
+                  style={{ height: 64, width: "auto" }} />
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: T.green, textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "var(--m)", marginBottom: 3 }}>Built by Social Enviro</div>
                   <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: T.textStrong, letterSpacing: "-0.015em" }}>Ready to scale profitably?</h3>
@@ -1543,15 +1543,18 @@ const NAV_ITEMS = [
 function Sidebar({ T, theme, setTheme, isDark, view, setView, brands, activeIdx, setActiveIdx, addBrand, currentUser, signOut }) {
   return (
     <div style={{ width: 240, background: T.panel, borderRight: `1.5px solid ${T.border}`, display: "flex", flexDirection: "column", height: "100vh", position: "sticky", top: 0, overflowY: "auto" }}>
-      {/* Logo */}
-      <div style={{ padding: "16px 16px 12px", borderBottom: `1.5px solid ${T.border}` }}>
-        <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 9, textDecoration: "none" }}>
-          <img src="/social-enviro-logo.png" alt="SE" onError={e => { e.currentTarget.style.display = "none"; }} style={{ height: 28, filter: isDark ? "invert(1) brightness(1.1)" : "none" }} />
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: T.textStrong, letterSpacing: "-0.01em" }}>Social Enviro</div>
-            <div style={{ fontSize: 10, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.04em" }}>COMMAND OS</div>
-          </div>
+      {/* Logo lockup — logo IS the wordmark */}
+      <div style={{ padding: "20px 18px 14px", borderBottom: `1.5px solid ${T.border}` }}>
+        <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" aria-label="Social Enviro home" style={{ display: "block", textDecoration: "none" }}>
+          <img
+            src={isDark ? "/logo-white.png" : "/logo-black.png"}
+            alt="Social Enviro"
+            onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.nextSibling.style.display = "block"; }}
+            style={{ height: 38, width: "auto", display: "block" }}
+          />
+          <div style={{ display: "none", fontSize: 18, fontWeight: 900, color: T.textStrong, letterSpacing: "-0.02em", lineHeight: 1 }}>SOCIAL ENVIRO</div>
         </a>
+        <div style={{ marginTop: 8, fontSize: 9.5, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.18em", fontWeight: 700 }}>COMMAND&nbsp;OS</div>
       </div>
 
       {/* Brand switcher */}
@@ -2133,12 +2136,9 @@ function SignIn({ T, theme, onSignIn }) {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "var(--h)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: 380, padding: "30px 28px", borderRadius: 14, background: T.panel, border: `1.5px solid ${T.border}`, boxShadow: "0 14px 60px rgba(0,0,0,0.4)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 11, marginBottom: 22 }}>
-          <img src="/social-enviro-logo.png" alt="SE" onError={e => { e.currentTarget.style.display = "none"; }} style={{ height: 36, filter: theme === "dark" ? "invert(1) brightness(1.1)" : "none" }} />
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: T.textStrong }}>Social Enviro</div>
-            <div style={{ fontSize: 11.5, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.04em" }}>COMMAND OS</div>
-          </div>
+        <div style={{ marginBottom: 22, textAlign: "center" }}>
+          <img src={theme === "dark" ? "/logo-white.png" : "/logo-black.png"} alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }} style={{ height: 48, width: "auto" }} />
+          <div style={{ marginTop: 8, fontSize: 10, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.22em", fontWeight: 700 }}>COMMAND&nbsp;OS</div>
         </div>
         <div style={{ fontSize: 13.5, color: T.text, lineHeight: 1.5, marginBottom: 20 }}>
           Sign in to your team account.
@@ -2203,12 +2203,12 @@ function StandaloneMatrix() {
 
       {/* Public header */}
       <div style={{ padding: "14px 24px", borderBottom: `1.5px solid ${T.border}`, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-        <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-          <img src="/social-enviro-logo.png" alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }}
-            style={{ height: 32, width: "auto", filter: isDark ? "invert(1) brightness(1.1)" : "none" }} />
-          <div>
-            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.02em", color: T.textStrong }}>Profit Matrix</div>
-            <div style={{ fontSize: 11, color: T.muted }}>by Social Enviro</div>
+        <a href="https://socialenviro.ie" target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
+          <img src={isDark ? "/logo-white.png" : "/logo-black.png"} alt="Social Enviro" onError={e => { e.currentTarget.style.display = "none"; }}
+            style={{ height: 40, width: "auto" }} />
+          <div style={{ paddingLeft: 14, borderLeft: `1.5px solid ${T.border}` }}>
+            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.02em", color: T.textStrong, lineHeight: 1.1 }}>Profit Matrix</div>
+            <div style={{ fontSize: 10.5, color: T.muted, fontFamily: "var(--m)", letterSpacing: "0.12em", fontWeight: 700, marginTop: 3 }}>FREE TOOL</div>
           </div>
         </a>
 
